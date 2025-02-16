@@ -2,7 +2,7 @@
 
 Tensor Reduction in GPU (manual optimization)
 
-- Serial Reduction
+- Parallel Reduction v1
 ## Run Code
 In CLI:
 ```
