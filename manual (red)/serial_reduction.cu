@@ -4,32 +4,33 @@
 
 // using namespace std;
 
-__global__ void sum_reduction_serial(int *input, int *output, int N) {
-    __shared__ int shared_data[1024]; // Shared memory for block reduction
+__global__ void sum_reduction_serial(int *d_in, int *d_out, int N, int elements_per_thread) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
     
-    int tid = threadIdx.x;
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
+    // Calculate the start index for each thread
+    int start_idx = tid * elements_per_thread;
     
-    if (gid < N) {
-        shared_data[tid] = input[gid];
-    } else {
-        shared_data[tid] = 0;
-    }
-    
-    __syncthreads();
-    
-    // Serial reduction within the first thread of the block
-    if (tid == 0) {
+    // Ensure that threads don't process beyond the array size
+    if (start_idx < N) {
         int sum = 0;
-        for (int i = 0; i < blockDim.x; i++) {
-            sum += shared_data[i];
+
+        // Loop through the elements assigned to this thread
+        for (int i = 0; i < elements_per_thread && start_idx + i < N; ++i) {
+            sum += d_in[start_idx + i];
         }
-        atomicAdd(output, sum);
+
+        // Use atomicAdd to accumulate the sum safely
+        atomicAdd(d_out, sum);
     }
 }
 
 int main() {
     const int N = 1024; // Number of elements
+    const int elements_per_thread = 2; // Number of elements processed per thread
+    int threads_per_block = 256;  // depends on hw?? TODO: need to know dynamic method
+    int blocks_per_grid = (N + elements_per_thread * threads_per_block - 1) / (elements_per_thread * threads_per_block);
+
+
     int h_input[N], h_output = 0;
     int *d_input, *d_output;
 
@@ -54,7 +55,7 @@ int main() {
     
     // Launch kernel with one block and 1024 threads (adjust if needed)
     cudaEventRecord(start);
-    sum_reduction_serial<<<1, 1024>>>(d_input, d_output, N);
+    sum_reduction_serial<<<blocks_per_grid, threads_per_block>>>(d_input, d_output, N, elements_per_thread);
     cudaEventRecord(stop);
 
     // benchmark
