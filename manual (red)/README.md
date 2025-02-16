@@ -12,4 +12,4 @@ nvcc file_name.cu -o object_name
 
 
 ## Profiling
-`nsys`
+`ncu ./object` 
