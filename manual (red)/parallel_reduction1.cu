@@ -2,10 +2,13 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-__global__ void SimpleSumReductionKernel(int* input, int* output) {
+__global__ void SimpleSumReductionKernel(float* input, float* output) {
+    
     unsigned int i = 2 * threadIdx.x;
     for (unsigned int stride = 1; stride <= blockDim.x; stride *= 2) {
         if (threadIdx.x % stride == 0) {
+
+            // take the input every stride apart and add (stride = 1, 2, 4, 8, ..)
             input[i] += input[i + stride];
         }
         __syncthreads();
@@ -18,23 +21,23 @@ __global__ void SimpleSumReductionKernel(int* input, int* output) {
 
 int main() {
     // Size of the input data
-    const int size = 1024;
-    const int bytes = size * sizeof(int);
+    int size = 1024;
+    int bytes = size * sizeof(float);
 
     // Allocate memory for input and output on host
-    int* h_input = new int[size];
-    int* h_output = new int;
+    float* h_input = new float[size];
+    float* h_output = new float;
 
     // Initialize input data on host
     for (int i = 0; i < size; i++) {
-        h_input[i] = 1; // Example: Initialize all elements to 1
+        h_input[i] = 1.0f; // Example: Initialize all elements to 1
     }
 
     // Allocate memory for input and output on device
-    int* d_input;
-    int* d_output;
+    float* d_input;
+    float* d_output;
     cudaMalloc(&d_input, bytes);
-    cudaMalloc(&d_output, sizeof(int));
+    cudaMalloc(&d_output, sizeof(float));
 
     // benchmark
     float milliseconds = 0;
@@ -46,8 +49,21 @@ int main() {
     cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
 
     cudaEventRecord(start);
+
+
+    int blockSize = 1024; // Optimal block size for many devices
+    // int numBlocks = (size + blockSize - 1) / blockSize; // Calculate the number of blocks
+
+    // Optimize grid dimensions based on device properties
+    int minGridSize = 40;
+    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, SimpleSumReductionKernel, 0, 0);
+
+    // Print suggested block size and minimum grid size
+    std::cout << "Recommended block size: " << blockSize
+              << ", Minimum grid size: " << minGridSize << std::endl;
+
     // Launch the kernel
-    SimpleSumReductionKernel<<<1, size / 2>>>(d_input, d_output);
+    // SimpleSumReductionKernel<<<1, size / 2>>>(d_input, d_output);
     cudaEventRecord(stop);
 
     // benchmark
@@ -56,7 +72,7 @@ int main() {
     printf("Kernel Execution Time: %f ms\n", milliseconds); 
 
     // Copy result back to host
-    cudaMemcpy(h_output, d_output, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_output, d_output, sizeof(float), cudaMemcpyDeviceToHost);
 
     // Print the result
     std::cout << "Sum is " << *h_output << std::endl;
