@@ -15,7 +15,7 @@ __global__ void SimpleSumReductionKernel(float* input, float* output) {
 
     }
     if (threadIdx.x == 0) {
-    *output = input[0];
+        *output = input[0];
     }
 }
 
@@ -50,20 +50,8 @@ int main() {
 
     cudaEventRecord(start);
 
-
-    int blockSize = 1024; // Optimal block size for many devices
-    // int numBlocks = (size + blockSize - 1) / blockSize; // Calculate the number of blocks
-
-    // Optimize grid dimensions based on device properties
-    int minGridSize = 40;
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, SimpleSumReductionKernel, 0, 0);
-
-    // Print suggested block size and minimum grid size
-    std::cout << "Recommended block size: " << blockSize
-              << ", Minimum grid size: " << minGridSize << std::endl;
-
     // Launch the kernel
-    // SimpleSumReductionKernel<<<1, size / 2>>>(d_input, d_output);
+    SimpleSumReductionKernel<<<1, size / 2>>>(d_input, d_output);
     cudaEventRecord(stop);
 
     // benchmark
@@ -76,6 +64,12 @@ int main() {
 
     // Print the result
     std::cout << "Sum is " << *h_output << std::endl;
+
+    // Calculate the optimal block size - will need later
+    // int blockSize = 1024; // Optimal block size for many devices
+    // int minGridSize = 40;
+    // cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, SimpleSumReductionKernel, 0, 0);
+
 
     // Cleanup
     delete[] h_input;
