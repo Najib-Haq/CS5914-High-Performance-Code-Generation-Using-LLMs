@@ -1,0 +1,82 @@
+--- Running baseline sum reduction test for gpt-4o-mini ---
+19:50:41.167 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:50:41.186   preparing model request params run_step=1
+19:50:41.187   model request
+19:50:52.310   handle model response
+
+--- Running baseline sum reduction test for o1-mini ---
+19:50:53.145 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:50:53.146   preparing model request params run_step=1
+19:50:53.146   model request
+19:51:07.784   handle model response
+
+--- Running baseline sum reduction test for claude-3-5-sonnet-latest ---
+19:51:08.611 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:51:08.612   preparing model request params run_step=1
+19:51:08.612   model request
+19:51:21.716   handle model response
+
+--- Running baseline sum reduction test for claude-3-5-haiku-latest ---
+19:51:22.554 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:51:22.555   preparing model request params run_step=1
+19:51:22.556   model request
+19:51:32.206   handle model response
+
+--- Running baseline sum reduction test for gemini-1.5-flash ---
+19:51:33.042 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:51:33.043   preparing model request params run_step=1
+19:51:33.044   model request
+19:51:38.605   handle model response
+[ERROR] Compilation failed for gemini-1.5-flash:
+In file included from /usr/include/c++/4.8.2/chrono:35:0,
+                 from data/1_benchmark/baseline_gemini-1.5-flash.cu:3:
+/usr/include/c++/4.8.2/bits/c++0x_warning.h:32:2: error: #error This file requires compiler and library support for the ISO C++ 2011 standard. This support is currently experimental, and must be enabled with the -std=c++11 or -std=gnu++11 compiler options.
+ #error This file requires compiler and library support for the \
+  ^
+
+
+--- Running baseline sum reduction test for llama-3.3-70b-versatile ---
+19:51:38.704 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:51:38.705   preparing model request params run_step=1
+19:51:38.705   model request
+19:51:43.252   handle model response
+
+--- Running baseline sum reduction test for qwen-2.5-32b ---
+19:51:44.117 agent run prompt=You are an expert in high-performance CUDA code generation. Ge...```cuda
+// Your complete high-performance CUDA code here
+```
+
+
+19:51:44.118   preparing model request params run_step=1
+19:51:44.119   model request
+19:51:45.818   handle model response
+[ERROR] Compilation failed for qwen-2.5-32b:
+In file included from /usr/include/c++/4.8.2/chrono:35:0,
+                 from data/1_benchmark/baseline_qwen-2.5-32b.cu:3:
+/usr/include/c++/4.8.2/bits/c++0x_warning.h:32:2: error: #error This file requires compiler and library support for the ISO C++ 2011 standard. This support is currently experimental, and must be enabled with the -std=c++11 or -std=gnu++11 compiler options.
+ #error This file requires compiler and library support for the \
+  ^

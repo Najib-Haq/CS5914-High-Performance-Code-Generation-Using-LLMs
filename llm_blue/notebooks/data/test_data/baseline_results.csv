@@ -1,0 +1,13 @@
+Model,Compilation,Execution Output
+gpt-4o-mini,Success,"Final Sum: 1024
+Kernel Execution Time: 14.9934 ms"
+o1-mini,Success,"Sum: 1024
+Kernel execution time: 12.6894 ms"
+claude-3-5-sonnet-latest,Success,"Sum: 1024
+Kernel execution time: 13.5342 ms"
+claude-3-5-haiku-latest,Success,"Final Sum: 1024
+Kernel Execution Time: 13.3683 ms"
+gemini-1.5-flash,Failure,Compilation Failed
+llama-3.3-70b-versatile,Success,"Final sum: 1024
+Kernel execution time: 19.4846 milliseconds"
+qwen-2.5-32b,Failure,Compilation Failed
