@@ -1,0 +1,2 @@
+Kernel Execution Time: 7.479296 ms
+Sum is 1024
