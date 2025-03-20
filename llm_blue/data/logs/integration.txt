@@ -1,0 +1,147 @@
+--- Running integration test for gpt-4o-mini ---
+19:29:46.294 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:29:46.294   preparing model request params run_step=1
+19:29:46.295   model request
+19:29:47.631   handle model response
+
+--- Running integration test for o1-mini ---
+19:29:48.186 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:29:48.187   preparing model request params run_step=1
+19:29:48.188   model request
+19:29:54.404   handle model response
+
+--- Running integration test for claude-3-5-sonnet-latest ---
+19:29:54.969 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:29:54.970   preparing model request params run_step=1
+19:29:54.970   model request
+19:29:56.947   handle model response
+
+--- Running integration test for claude-3-5-haiku-latest ---
+19:29:57.487 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:29:57.488   preparing model request params run_step=1
+19:29:57.488   model request
+19:30:00.328   handle model response
+
+--- Running integration test for gemini-1.5-flash ---
+19:30:00.895 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:30:00.895   preparing model request params run_step=1
+19:30:00.896   model request
+19:30:02.573   handle model response
+
+--- Running integration test for gemini-2.0-flash ---
+19:30:03.143 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:30:03.143   preparing model request params run_step=1
+19:30:03.144   model request
+19:30:04.235   handle model response
+[ERROR] Compilation failed for gemini-2.0-flash:
+data/generated_cuda/integration_check/integrationTest_gemini-2.0-flash.cu(5): error: identifier "printf" is undefined
+      printf("Hello from CUDA thread %d!\n", threadId);
+      ^
+
+1 error detected in the compilation of "data/generated_cuda/integration_check/integrationTest_gemini-2.0-flash.cu".
+
+
+--- Running integration test for llama-3.3-70b-versatile ---
+19:30:04.683 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:30:04.683   preparing model request params run_step=1
+19:30:04.684   model request
+19:30:05.465   handle model response
+
+--- Running integration test for qwen-2.5-32b ---
+19:30:06.034 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:30:06.034   preparing model request params run_step=1
+19:30:06.035   model request
+19:30:06.387   handle model response
+
+--- Running integration test for deepseek-r1-distill-qwen-32b ---
+19:30:06.919 agent run prompt=You are an expert CUDA code generator. Generate a complete and...CUDA code here
+```
+
+Output only the code block as shown above.
+19:30:06.920   preparing model request params run_step=1
+19:30:06.920   model request
+19:30:08.140   handle model response
+[ERROR] Compilation failed for deepseek-r1-distill-qwen-32b:
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(1): error: expected a declaration
+  <think>
+  ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(2): error: extra text after expected end of number
+  Okay, so the user wants a CUDA program where each thread prints "Hello from CUDA thread X!" with X being the thread index. They specified that it should be a complete, self-contained program that compiles with nvcc version 12.4.
+                                                                                                                                                                                                                                     ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(6): warning #1654-D: too many characters in character literal -- extra leading characters ignored
+  I'll start by including cuda.h because that's necessary for CUDA functions. Then, in the main function, I'll set up the kernel launch parameters. The grid and block dimensions need to be defined. For simplicity, I'll choose a grid of 2 blocks and each block having 3 threads, so total 6 threads.
+   ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(6): warning #1654-D: too many characters in character literal -- extra leading characters ignored
+  I'll start by including cuda.h because that's necessary for CUDA functions. Then, in the main function, I'll set up the kernel launch parameters. The grid and block dimensions need to be defined. For simplicity, I'll choose a grid of 2 blocks and each block having 3 threads, so total 6 threads.
+                                                                                                           ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(10): warning #1654-D: too many characters in character literal -- extra leading characters ignored
+  After defining the kernel, in the main function, I'll launch the kernel with the specified grid and block dimensions. It's important to include cudaDeviceSynchronize() to ensure the kernel completes before the program exits, so the output is visible.
+                                                    ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(12): warning #1654-D: too many characters in character literal -- extra leading characters ignored
+  I should also handle any potential CUDA errors by checking the return values, but since the user didn't specify error handling, I'll keep it simple for now.
+                                                                                                       ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(19): error: unrecognized token
+  ```cuda
+  ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(19): error: unrecognized token
+  ```cuda
+   ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(19): error: unrecognized token
+  ```cuda
+    ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(24): error: identifier "printf" is undefined
+      printf("Hello from CUDA thread %d!\n", tid);
+      ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(36): error: unrecognized token
+  ```
+  ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(36): error: expected a declaration
+  ```
+  ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(36): error: unrecognized token
+  ```
+   ^
+
+data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu(36): error: unrecognized token
+  ```
+    ^
+
+10 errors detected in the compilation of "data/generated_cuda/integration_check/integrationTest_deepseek-r1-distill-qwen-32b.cu".
