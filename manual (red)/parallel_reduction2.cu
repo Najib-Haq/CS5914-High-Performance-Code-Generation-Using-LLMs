@@ -1,69 +1,109 @@
 #include <iostream>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <nvml.h>  // NVIDIA Management Library
 
-__global__ void FixDivergenceKernel(int* input, int* output) {
-    unsigned int i = threadIdx.x; //threads start next to each other
-    for (unsigned int stride = blockDim.x; stride >= 1; stride /= 2) { // furthest element is blockDim away
-        if (threadIdx.x < stride) { // 
-            input[i] += input[i + stride]; // each thread adds a distant element to its assigned position
+#define THREADS_PER_BLOCK 1024
+
+// Sequential addressing + Shared Memory Reduction Kernel
+
+__global__ void reduceKernel(int* input, int* output, int size) {
+    __shared__ int shared_data[THREADS_PER_BLOCK];
+
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x * blockDim.x * 2 + tid;
+
+    if (i < size)
+        shared_data[tid] = input[i] + (i + blockDim.x < size ? input[i + blockDim.x] : 0);
+    else
+        shared_data[tid] = 0;
+
+    __syncthreads();
+
+    for (unsigned int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (tid < stride) {
+            shared_data[tid] += shared_data[tid + stride];
         }
         __syncthreads();
+    }
 
+    if (tid == 0)
+        output[blockIdx.x] = shared_data[0];
+}
+
+void reduce(int* d_input, int* d_output, int size) {
+    int remaining = size;
+    int blocks = (size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
+
+    while (remaining > 1) {
+        reduceKernel<<<blocks, THREADS_PER_BLOCK>>>(d_input, d_output, remaining);
+        cudaDeviceSynchronize();
+        
+        remaining = blocks;
+        blocks = (remaining + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
+
+        std::swap(d_input, d_output);
     }
-    if (threadIdx.x == 0) {
-    *output = input[0];
-    }
+
+    cudaMemcpy(d_output, d_input, sizeof(int), cudaMemcpyDeviceToHost);
+}
+
+// Function to check GPU memory usage using NVML
+void checkGpuMemoryUsage() {
+    nvmlInit();
+    nvmlDevice_t device;
+    nvmlMemory_t memory;
+    
+    nvmlDeviceGetHandleByIndex(0, &device);  // Get first GPU
+    nvmlDeviceGetMemoryInfo(device, &memory);
+
+    std::cout << "GPU Memory Usage: " 
+              << (memory.used / (1024 * 1024)) << " MB / "
+              << (memory.total / (1024 * 1024)) << " MB" << std::endl;
+
+    nvmlShutdown();
 }
 
 int main() {
-    // Size of the input data
-    const int size = 1024;
-    const int bytes = size * sizeof(int);
+    const int size = 1342177280; //1342177280; // 1.34 billion elements (~5GB)
+    const size_t bytes = size * sizeof(int);
 
-    // Allocate memory for input and output on host
     int* h_input = new int[size];
-    int* h_output = new int;
+    int h_output;
 
-    // Initialize input data on host
     for (int i = 0; i < size; i++) {
-        h_input[i] = 1; // Example: Initialize all elements to 1
+        h_input[i] = 1;
     }
 
-    // Allocate memory for input and output on device
-    int* d_input;
-    int* d_output;
+    int* d_input, * d_output;
     cudaMalloc(&d_input, bytes);
-    cudaMalloc(&d_output, sizeof(int));
+    cudaMalloc(&d_output, bytes);
 
-    // benchmark
+    checkGpuMemoryUsage();  // GPU memory before copy
+
+    cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
+
+    checkGpuMemoryUsage();  // GPU memory after copy
+
     float milliseconds = 0;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // Copy data from host to device
-    cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
-
     cudaEventRecord(start);
-    // Launch the kernel
-    FixDivergenceKernel<<<1, size / 2>>>(d_input, d_output);
+    reduce(d_input, d_output, size);
     cudaEventRecord(stop);
 
-    // benchmark
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&milliseconds, start, stop);
-    printf("Kernel Execution Time: %f ms\n", milliseconds); 
+    printf("Kernel Execution Time: %f ms\n", milliseconds);
 
-    // Copy result back to host
-    cudaMemcpy(h_output, d_output, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&h_output, d_output, sizeof(int), cudaMemcpyDeviceToHost);
+    std::cout << "Sum is " << h_output << std::endl;
 
-    // Print the result
-    std::cout << "Sum is " << *h_output << std::endl;
+    checkGpuMemoryUsage();  // GPU memory after computation
 
-    // Cleanup
     delete[] h_input;
-    delete h_output;
     cudaFree(d_input);
     cudaFree(d_output);
 

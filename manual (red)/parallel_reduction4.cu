@@ -5,107 +5,141 @@
 
 #define THREADS_PER_BLOCK 1024
 
-__global__ void reduceKernel(int* input, int* output, int size) {
+// Unrolling the Final Warp Loop
+
+// Warp-Level Reduction Using Template Metaprogramming for Full Unrolling
+template <int Offset>
+__inline__ __device__ void warpReduceSumUnrolled(int &sum) {
+    sum += __shfl_down_sync(0xFFFFFFFF, sum, Offset);
+}
+
+
+// Fully Unrolled Block-Level Reduction Using Template Metaprogramming
+template <int BlockSize>
+__inline__ __device__ void blockReduceSum(int* shared_data, int tid) {
+    if constexpr (BlockSize >= 1024) {
+        if (tid < 512) shared_data[tid] += shared_data[tid + 512];
+        __syncthreads();
+    }
+    if constexpr (BlockSize >= 512) {
+        if (tid < 256) shared_data[tid] += shared_data[tid + 256];
+        __syncthreads();
+    }
+    if constexpr (BlockSize >= 256) {
+        if (tid < 128) shared_data[tid] += shared_data[tid + 128];
+        __syncthreads();
+    }
+    if constexpr (BlockSize >= 128) {
+        if (tid < 64) shared_data[tid] += shared_data[tid + 64];
+        __syncthreads();
+    }
+    if (tid <= 32) {
+        warpReduceSumUnrolled<32>(shared_data[tid]);  // changed and added this
+        warpReduceSumUnrolled<16>(shared_data[tid]);
+        warpReduceSumUnrolled<8>(shared_data[tid]);
+        warpReduceSumUnrolled<4>(shared_data[tid]);
+        warpReduceSumUnrolled<2>(shared_data[tid]);
+        warpReduceSumUnrolled<1>(shared_data[tid]);
+    }
+}
+
+// Fully Unrolled CUDA Reduction Kernel
+__global__ void fullyUnrolledReduceKernel(int* input, int* output, long long int size) {
     __shared__ int shared_data[THREADS_PER_BLOCK];
 
     unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x * blockDim.x * 2 + tid;
+    unsigned long long i = blockIdx.x * (blockDim.x * 2) + tid;
 
-    if (i < size)
-        shared_data[tid] = input[i] + (i + blockDim.x < size ? input[i + blockDim.x] : 0);
-    else
-        shared_data[tid] = 0;
+    // Load input safely and prevent skipping values
+    int sum = 0;
+    if (i < size) sum = input[i];
+    if (i + blockDim.x < size) sum += input[i + blockDim.x];
 
+    shared_data[tid] = sum;
     __syncthreads();
 
-    // Sequential addressing
-    for (unsigned int s = blockDim.x/2; s > 0; s >>= 1) {
-        if (tid < s) {
-            shared_data[tid] += shared_data[tid + s];
-        }
-        __syncthreads();
-    }
-    
+    // Perform Fully Unrolled Block Reduction
+    blockReduceSum<THREADS_PER_BLOCK>(shared_data, tid);
 
-    if (tid == 0)
+    // Store only final block sum
+    if (tid == 0) {
         output[blockIdx.x] = shared_data[0];
+    }
 }
 
-void reduce(int* d_input, int* d_output, int size) {
-    int remaining = size;
-    int blocks = (size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
+// Reduce Partial Sums on CPU
+int finalReduceOnCPU(int* d_output, int numBlocks) {
+    int* h_partial_sums = new int[numBlocks];
+    cudaMemcpy(h_partial_sums, d_output, numBlocks * sizeof(int), cudaMemcpyDeviceToHost);
 
-    while (remaining > 1) {
-        reduceKernel<<<blocks, THREADS_PER_BLOCK>>>(d_input, d_output, remaining);
-        cudaDeviceSynchronize();
-        
-        remaining = blocks;
-        blocks = (remaining + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
-
-        std::swap(d_input, d_output);
+    int totalSum = 0;
+    for (int i = 0; i < numBlocks; i++) {
+        totalSum += h_partial_sums[i];
     }
 
-    cudaMemcpy(d_output, d_input, sizeof(int), cudaMemcpyDeviceToHost);
+    delete[] h_partial_sums;
+    return totalSum;
 }
 
-// Function to check GPU memory usage using NVML
-void checkGpuMemoryUsage() {
+// GPU Memory Check Function
+void checkGpuMemoryUsage(const char* message) {
     nvmlInit();
     nvmlDevice_t device;
     nvmlMemory_t memory;
-    
-    nvmlDeviceGetHandleByIndex(0, &device);  // Get first GPU
+    nvmlDeviceGetHandleByIndex(0, &device);
     nvmlDeviceGetMemoryInfo(device, &memory);
-
-    std::cout << "GPU Memory Usage: " 
+    std::cout << message << " - GPU Memory Usage: " 
               << (memory.used / (1024 * 1024)) << " MB / "
-              << (memory.total / (1024 * 1024)) << " MB" << std::endl;
-
+              << (memory.total / (1024 * 1024)) << " MB\n";
     nvmlShutdown();
 }
 
-int main() {
-    const int size = 1342177280; //1342177280; //1024 // 1.34 billion elements (~5GB)
-    const size_t bytes = size * sizeof(int);
-
-    int* h_input = new int[size];
-    int h_output;
-
-    for (int i = 0; i < size; i++) {
-        h_input[i] = 1;
-    }
-
-    int* d_input, * d_output;
-    cudaMalloc(&d_input, bytes);
-    cudaMalloc(&d_output, bytes);
-
-    checkGpuMemoryUsage();  // GPU memory before copy
-
-    cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
-
-    checkGpuMemoryUsage();  // GPU memory after copy
-
+// Host Function to Call Kernel
+void reduce(int* d_input, int* d_output, long long int size) {
+    int numBlocks = (size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
+    
     float milliseconds = 0;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    reduce(d_input, d_output, size);
+    fullyUnrolledReduceKernel<<<numBlocks, THREADS_PER_BLOCK>>>(d_input, d_output, size);
+    cudaDeviceSynchronize();
     cudaEventRecord(stop);
-
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&milliseconds, start, stop);
-    printf("Kernel Execution Time: %f ms\n", milliseconds);
+    
+    int finalSum = finalReduceOnCPU(d_output, numBlocks);
+    printf("Fully Unrolled Reduction Kernel Execution Time: %f ms\n", milliseconds);
+    printf("Correct Final Sum: %d\n", finalSum);
+}
 
-    cudaMemcpy(&h_output, d_output, sizeof(int), cudaMemcpyDeviceToHost);
-    std::cout << "Sum is " << h_output << std::endl;
+// Main Function
+int main() {
+    const long long int size = 1000000000; // Adjustable (1K, 1M, 1B, 5B)
+    const size_t bytes = size * sizeof(int);
+    
+    int* h_input = new int[size];
+    for (long long int i = 0; i < size; i++) h_input[i] = 1;
 
-    checkGpuMemoryUsage();  // GPU memory after computation
+    int *d_input, *d_output;
+    checkGpuMemoryUsage("Before GPU Memory Allocation");
 
-    delete[] h_input;
+    cudaMalloc(&d_input, bytes);
+    cudaMalloc(&d_output, ((size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2)) * sizeof(int));  // Fix: Allocate full output array for all blocks
+
+    checkGpuMemoryUsage("After GPU Memory Allocation");
+
+    cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
+    checkGpuMemoryUsage("After Copying Data to GPU");
+
+    reduce(d_input, d_output, size);
+
     cudaFree(d_input);
     cudaFree(d_output);
+    delete[] h_input;
 
+    checkGpuMemoryUsage("After GPU Memory Deallocation");
     return 0;
 }

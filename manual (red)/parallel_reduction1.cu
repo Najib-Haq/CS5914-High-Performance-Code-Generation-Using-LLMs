@@ -2,6 +2,13 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+
+
+// Simple parallel
+// TODO: Update to input size of millions & billions
+
+
+
 __global__ void SimpleSumReductionKernel(float* input, float* output) {
     
     unsigned int i = 2 * threadIdx.x;

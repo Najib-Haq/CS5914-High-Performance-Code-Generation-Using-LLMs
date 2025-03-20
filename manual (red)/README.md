@@ -2,7 +2,29 @@
 
 Tensor Reduction in GPU (manual optimization)
 
-- Parallel Reduction v1
+# Reduction Strategies
+## Strategy 1: Naive Parallel Implementation
+
+File: `parallel_reduction1.cu` <br> 
+Logic: A straightforward tree-based reduction where each pair of elements is processed by one thread. This naive kernel loops over reduction steps, at each step having certain threads add a neighbor’s value to their own. For example, thread 0 adds thread 1’s element, thread 2 adds thread 3’s, and so on, halving the number of active threads each iteration. A barrier sync (__syncthreads()) is used between steps to ensure partial sums are visible to the next step
+
+## Strategy 2: Sequential Addressing + Shared memory
+
+File: `parallel_reduction2.cu` <br> 
+Logic: Alter the reduction loop to use sequential addressing.  In sequential addressing, threads with index below a certain threshold perform the addition with a partner thread above the threshold. This way, in each step, the lower half of threads in the block actively add the values of the upper half, eliminating warp-level divergence because all threads in a given warp either all pass the condition or all fail it as a group. The access pattern becomes more regular: thread 0 adds thread s, thread 1 adds thread s+1, etc., which are contiguous in memory.
+
+## Strategy 3: Unrolling the Final Warp Loop + shuffle instructions
+
+File: `parallel_reduction3.cu` <br> 
+Logic: Final stages of the reduction (when only a warp or less of threads remain) still rely on shared memory and __syncthreads. Once we get down to 32 or fewer elements, those reside within a single warp. Intra-warp communication can be done more efficiently using warp shuffle instructions rather than shared memory. Another optimization is to fully unroll the reduction for the last warp of 32 threads using manual code.
+
+
+## Strategy 4: Fully Unrolled Reduction Kernel 
+
+File: `parallel_reduction4.cu` <br> 
+Logic: Using C++ templates or launch-time constants to fully unroll the entire reduction for a given block size. The idea is to eliminate all loop overhead and make every memory access pattern a compile-time decision, which allows the compiler to optimize and schedule instructions most effectively.
+
+
 ## Run Code
 In CLI:
 ```
