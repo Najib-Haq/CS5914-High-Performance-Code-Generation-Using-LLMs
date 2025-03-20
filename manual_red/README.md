@@ -1,6 +1,7 @@
 # CS5914-High-Performance-Code-Generation-Using-LLMs
-
 Tensor Reduction in GPU (manual optimization)
+
+By: Najibul Haque Sarker
 
 # Reduction Strategies
 ## Strategy 1: Naive Parallel Implementation
