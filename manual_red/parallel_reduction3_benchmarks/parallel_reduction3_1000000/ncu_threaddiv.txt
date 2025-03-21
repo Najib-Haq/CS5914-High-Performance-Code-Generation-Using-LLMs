@@ -1,0 +1,189 @@
+Running CUDA Reduction for size: 1000000
+==PROF== Connected to process 3552102 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "unrolledWarpReduceKernel" - 0: 0%....50%....100% - 44 passes
+Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
+After GPU Memory Allocation - GPU Memory Usage: 1412 MB / 81920 MB
+After Copying Data to GPU - GPU Memory Usage: 1412 MB / 81920 MB
+Unrolled Warp Reduction Kernel Execution Time: 5552.250977 ms
+Correct Final Sum: 1000000
+After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
+==PROF== Disconnected from process 3552102
+[3552102] para.out@127.0.0.1
+  unrolledWarpReduceKernel(int *, int *, long long) (489, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- ------------
+    Metric Name               Metric Unit Metric Value
+    ----------------------- ------------- ------------
+    DRAM Frequency          cycle/nsecond         1.55
+    SM Frequency            cycle/nsecond         1.12
+    Elapsed Cycles                  cycle       11,158
+    Memory Throughput                   %        22.20
+    DRAM Throughput                     %        20.26
+    Duration                      usecond         9.95
+    L1/TEX Cache Throughput             %        31.29
+    L2 Cache Throughput                 %        19.11
+    SM Active Cycles                cycle     7,878.63
+    Compute (SM) Throughput             %        26.90
+    ----------------------- ------------- ------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: GPU Speed Of Light Roofline Chart
+    INF   The ratio of peak float (fp32) to double (fp64) performance on this device is 2:1. The kernel achieved 0% of  
+          this device's fp32 peak performance and 0% of its fp64 peak performance. See the Kernel Profiling Guide       
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#roofline) for more details on roofline      
+          analysis.                                                                                                     
+
+    Section: Compute Workload Analysis
+    -------------------- ----------- ------------
+    Metric Name          Metric Unit Metric Value
+    -------------------- ----------- ------------
+    Executed Ipc Active   inst/cycle         1.44
+    Executed Ipc Elapsed  inst/cycle         1.02
+    Issue Slots Busy               %        37.92
+    Issued Ipc Active     inst/cycle         1.52
+    SM Busy                        %        37.92
+    -------------------- ----------- ------------
+
+    INF   ALU is the highest-utilized pipeline (27.8%) based on active cycles, taking into account the rates of its     
+          different instructions. It executes integer and logic operations. It is well-utilized, but should not be a    
+          bottleneck.                                                                                                   
+
+    Section: Memory Workload Analysis
+    --------------------------- ------------ ------------
+    Metric Name                  Metric Unit Metric Value
+    --------------------------- ------------ ------------
+    Memory Throughput           Gbyte/second       401.94
+    Mem Busy                               %        22.20
+    Max Bandwidth                          %        21.49
+    L1/TEX Hit Rate                        %         0.09
+    L2 Compression Success Rate            %            0
+    L2 Compression Ratio                                0
+    L2 Hit Rate                            %         7.62
+    Mem Pipes Busy                         %        21.49
+    --------------------------- ------------ ------------
+
+    Section: Memory Workload Analysis Tables
+    OPT   Estimated Speedup: 0.05419%                                                                                   
+          The memory access pattern for stores from L1TEX to L2 is not optimal. The granularity of an L1TEX request to  
+          L2 is a 128 byte cache line. That is 4 consecutive 32-byte sectors per L2 request. However, this kernel only  
+          accesses an average of 1.0 sectors out of the possible 4 sectors per cache line. Check the Source Counters    
+          section for uncoalesced stores and try to minimize how many cache lines need to be accessed per memory        
+          request.                                                                                                      
+
+    Section: Scheduler Statistics
+    ---------------------------- ----------- ------------
+    Metric Name                  Metric Unit Metric Value
+    ---------------------------- ----------- ------------
+    One or More Eligible                   %        39.78
+    Issued Warp Per Scheduler                        0.40
+    No Eligible                            %        60.22
+    Active Warps Per Scheduler          warp        12.59
+    Eligible Warps Per Scheduler        warp         1.65
+    ---------------------------- ----------- ------------
+
+    OPT   Estimated Speedup: 60.22%                                                                                     
+          Every scheduler is capable of issuing one instruction per cycle, but for this kernel each scheduler only      
+          issues an instruction every 2.5 cycles. This might leave hardware resources underutilized and may lead to     
+          less optimal performance. Out of the maximum of 16 warps per scheduler, this kernel allocates an average of   
+          12.59 active warps per scheduler, but only an average of 1.65 warps were eligible per cycle. Eligible warps   
+          are the subset of active warps that are ready to issue their next instruction. Every cycle with no eligible   
+          warp results in no instruction being issued and the issue slot remains unused. To increase the number of      
+          eligible warps, reduce the time the active warps are stalled by inspecting the top stall reasons on the Warp  
+          State Statistics and Source Counters sections.                                                                
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        31.66
+    Warp Cycles Per Executed Instruction           cycle        33.24
+    Avg. Active Threads Per Warp                                31.59
+    Avg. Not Predicated Off Threads Per Warp                    24.52
+    ---------------------------------------- ----------- ------------
+
+    OPT   Estimated Speedup: 31.57%                                                                                     
+          On average, each warp of this kernel spends 10.0 cycles being stalled waiting for a scoreboard dependency on  
+          a L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited     
+          upon to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the        
+          memory access patterns are optimal for the target architecture, attempt to increase cache hit rates by        
+          increasing data locality (coalescing), or by changing the cache configuration. Consider moving frequently     
+          used data to shared memory. This stall type represents about 31.6% of the total average of 31.7 cycles        
+          between issuing two instructions.                                                                             
+    ----- --------------------------------------------------------------------------------------------------------------
+    INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
+          sampling data. The Kernel Profiling Guide                                                                     
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
+          on each stall reason.                                                                                         
+
+    Section: Instruction Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Avg. Executed Instructions Per Scheduler        inst     2,844.58
+    Executed Instructions                           inst    1,228,857
+    Avg. Issued Instructions Per Scheduler          inst     2,987.34
+    Issued Instructions                             inst    1,290,532
+    ---------------------------------------- ----------- ------------
+
+    Section: Launch Statistics
+    -------------------------------- --------------- ---------------
+    Metric Name                          Metric Unit    Metric Value
+    -------------------------------- --------------- ---------------
+    Block Size                                                 1,024
+    Function Cache Configuration                     CachePreferNone
+    Grid Size                                                    489
+    Registers Per Thread             register/thread              16
+    Shared Memory Configuration Size           Kbyte           16.38
+    Driver Shared Memory Per Block       Kbyte/block            1.02
+    Dynamic Shared Memory Per Block       byte/block               0
+    Static Shared Memory Per Block       Kbyte/block            4.10
+    Threads                                   thread         500,736
+    Waves Per SM                                                2.26
+    -------------------------------- --------------- ---------------
+
+    OPT   Estimated Speedup: 33.33%                                                                                     
+          A wave of thread blocks is defined as the maximum number of blocks that can be executed in parallel on the    
+          target GPU. The number of blocks in a wave depends on the number of multiprocessors and the theoretical       
+          occupancy of the kernel. This kernel launch results in 2 full waves and a partial wave of 56 thread blocks.   
+          Under the assumption of a uniform execution duration of all thread blocks, the partial wave may account for   
+          up to 33.3% of the total kernel runtime with a lower occupancy of 23.9%. Try launching a grid with no         
+          partial wave. The overall impact of this tail effect also lessens with the number of full waves executed for  
+          a grid. See the Hardware Model                                                                                
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-hw-model) description for more      
+          details on launch configurations.                                                                             
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           32
+    Block Limit Registers                 block            4
+    Block Limit Shared Mem                block            3
+    Block Limit Warps                     block            2
+    Theoretical Active Warps per SM        warp           64
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        76.05
+    Achieved Active Warps Per SM           warp        48.67
+    ------------------------------- ----------- ------------
+
+    OPT   Estimated Speedup: 23.95%                                                                                     
+          This kernel's theoretical occupancy is not impacted by any block limit. The difference between calculated     
+          theoretical (100.0%) and measured achieved occupancy (76.1%) can be the result of warp scheduling overheads   
+          or workload imbalances during the kernel execution. Load imbalances can occur between warps within a block    
+          as well as across blocks of the same kernel. See the CUDA Best Practices Guide                                
+          (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on           
+          optimizing occupancy.                                                                                         
+
+    Section: Source Counters
+    ------------------------- ----------- ------------
+    Metric Name               Metric Unit Metric Value
+    ------------------------- ----------- ------------
+    Branch Instructions Ratio           %         0.11
+    Branch Instructions              inst      131,052
+    Branch Efficiency                   %        99.50
+    Avg. Divergent Branches                       1.13
+    ------------------------- ----------- ------------
+

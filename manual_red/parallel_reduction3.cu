@@ -102,8 +102,18 @@ void reduce(int* d_input, int* d_output, long long int size) {
 }
 
 // Main Function
-int main() {
-    const long long int size = 2000000000LL; // Adjustable (1K, 1M, 1B, 5B)
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Wrong Usage: " << argv[0] << " <size>\n";
+        return 1;
+    }
+    const long long int size = atoll(argv[1]); //1342177280; //1342177280; // 1.34 billion elements (~5GB)
+    if (size <= 0) {
+        std::cerr << "Error: Invalid input size.\n";
+        return 1;
+    }
+    std::cout << "Running CUDA Reduction for size: " << size << std::endl;
+
     const size_t bytes = size * sizeof(int);
     
     int* h_input = new int[size];

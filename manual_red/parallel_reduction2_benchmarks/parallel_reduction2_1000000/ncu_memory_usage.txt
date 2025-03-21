@@ -1,0 +1,31 @@
+Running CUDA Reduction for size: 1000000
+==PROF== Connected to process 3509778 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+GPU Memory Usage: 1414 MB / 81920 MB
+GPU Memory Usage: 1414 MB / 81920 MB
+==PROF== Profiling "reduceKernel(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+==PROF== Profiling "reduceKernel(int *, int *, int)" - 1: 0%....50%....100% - 1 pass
+Kernel Execution Time: 884.228638 ms
+Sum is 1000000
+GPU Memory Usage: 1414 MB / 81920 MB
+==PROF== Disconnected from process 3509778
+[3509778] para.out@127.0.0.1
+  reduceKernel(int *, int *, int) (489, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    -------------------- ----------- ------------
+    Metric Name          Metric Unit Metric Value
+    -------------------- ----------- ------------
+    dram__bytes_read.sum       Mbyte         4.00
+    l1tex__t_bytes.sum         Mbyte         4.02
+    l2tex__t_bytes.sum                    (!) n/a
+    -------------------- ----------- ------------
+
+  reduceKernel(int *, int *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    -------------------- ----------- ------------
+    Metric Name          Metric Unit Metric Value
+    -------------------- ----------- ------------
+    dram__bytes_read.sum       Kbyte         2.30
+    l1tex__t_bytes.sum         Kbyte         2.02
+    l2tex__t_bytes.sum                    (!) n/a
+    -------------------- ----------- ------------
+

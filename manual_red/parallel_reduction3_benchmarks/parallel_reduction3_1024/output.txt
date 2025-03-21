@@ -1,0 +1,7 @@
+Running CUDA Reduction for size: 1024
+Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
+After GPU Memory Allocation - GPU Memory Usage: 1294 MB / 81920 MB
+After Copying Data to GPU - GPU Memory Usage: 1294 MB / 81920 MB
+Unrolled Warp Reduction Kernel Execution Time: 5.953536 ms
+Correct Final Sum: 1024
+After GPU Memory Deallocation - GPU Memory Usage: 1292 MB / 81920 MB

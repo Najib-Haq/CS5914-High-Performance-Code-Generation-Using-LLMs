@@ -1,0 +1,70 @@
+Running CUDA Reduction for size: 2000000000
+==PROF== Connected to process 3556582 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "unrolledWarpReduceKernel" - 0: 0%....50%....100% - 10 passes
+Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
+After GPU Memory Allocation - GPU Memory Usage: 9040 MB / 81920 MB
+After Copying Data to GPU - GPU Memory Usage: 9040 MB / 81920 MB
+Unrolled Warp Reduction Kernel Execution Time: 1958.733276 ms
+Correct Final Sum: 2000000000
+After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
+==PROF== Disconnected from process 3556582
+[3556582] para.out@127.0.0.1
+  unrolledWarpReduceKernel(int *, int *, long long) (976563, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ------------- -------------
+    Metric Name               Metric Unit  Metric Value
+    ----------------------- ------------- -------------
+    DRAM Frequency          cycle/nsecond          1.59
+    SM Frequency            cycle/nsecond          1.15
+    Elapsed Cycles                  cycle    12,338,992
+    Memory Throughput                   %         40.52
+    DRAM Throughput                     %         36.74
+    Duration                      msecond         10.68
+    L1/TEX Cache Throughput             %         40.54
+    L2 Cache Throughput                 %         38.79
+    SM Active Cycles                cycle 12,320,212.69
+    Compute (SM) Throughput             %         46.15
+    ----------------------- ------------- -------------
+
+    OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
+          of this device. Achieved compute throughput and/or memory bandwidth below 60.0% of peak typically indicate    
+          latency issues. Look at Scheduler Statistics and Warp State Statistics for potential reasons.                 
+
+    Section: Launch Statistics
+    -------------------------------- --------------- ---------------
+    Metric Name                          Metric Unit    Metric Value
+    -------------------------------- --------------- ---------------
+    Block Size                                                 1,024
+    Function Cache Configuration                     CachePreferNone
+    Grid Size                                                976,563
+    Registers Per Thread             register/thread              16
+    Shared Memory Configuration Size           Kbyte           16.38
+    Driver Shared Memory Per Block       Kbyte/block            1.02
+    Dynamic Shared Memory Per Block       byte/block               0
+    Static Shared Memory Per Block       Kbyte/block            4.10
+    Threads                                   thread   1,000,000,512
+    Waves Per SM                                            4,521.12
+    -------------------------------- --------------- ---------------
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Block Limit SM                        block           32
+    Block Limit Registers                 block            4
+    Block Limit Shared Mem                block            3
+    Block Limit Warps                     block            2
+    Theoretical Active Warps per SM        warp           64
+    Theoretical Occupancy                     %          100
+    Achieved Occupancy                        %        76.85
+    Achieved Active Warps Per SM           warp        49.19
+    ------------------------------- ----------- ------------
+
+    OPT   Estimated Speedup: 23.15%                                                                                     
+          This kernel's theoretical occupancy is not impacted by any block limit. The difference between calculated     
+          theoretical (100.0%) and measured achieved occupancy (76.9%) can be the result of warp scheduling overheads   
+          or workload imbalances during the kernel execution. Load imbalances can occur between warps within a block    
+          as well as across blocks of the same kernel. See the CUDA Best Practices Guide                                
+          (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on           
+          optimizing occupancy.                                                                                         
+

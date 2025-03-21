@@ -1,0 +1,7 @@
+Running CUDA Reduction for size: 2000000000
+Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
+After GPU Memory Allocation - GPU Memory Usage: 8926 MB / 81920 MB
+After Copying Data to GPU - GPU Memory Usage: 8926 MB / 81920 MB
+Fully Unrolled Reduction Kernel Execution Time: 13.166304 ms
+Correct Final Sum: 2000000000
+After GPU Memory Deallocation - GPU Memory Usage: 1292 MB / 81920 MB

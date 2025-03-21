@@ -1,0 +1,69 @@
+Running CUDA Reduction for size: 1000000000
+==PROF== Connected to process 3512631 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+GPU Memory Usage: 9038 MB / 81920 MB
+GPU Memory Usage: 9038 MB / 81920 MB
+==PROF== Profiling "reduceKernel(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+==PROF== Profiling "reduceKernel(int *, int *, int)" - 1: 0%....50%....100% - 1 pass
+==PROF== Profiling "reduceKernel(int *, int *, int)" - 2: 0%....50%....100% - 1 pass
+Kernel Execution Time: 1352.802490 ms
+Sum is 1000000000
+GPU Memory Usage: 9038 MB / 81920 MB
+==PROF== Disconnected from process 3512631
+[3512631] para.out@127.0.0.1
+  reduceKernel(int *, int *, int) (488282, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    --------------------------------------------------- ----------- ------------
+    Metric Name                                         Metric Unit Metric Value
+    --------------------------------------------------- ----------- ------------
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.sum        inst            0
+    --------------------------------------------------- ----------- ------------
+
+  reduceKernel(int *, int *, int) (239, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    --------------------------------------------------- ----------- ------------
+    Metric Name                                         Metric Unit Metric Value
+    --------------------------------------------------- ----------- ------------
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.sum        inst            0
+    --------------------------------------------------- ----------- ------------
+
+  reduceKernel(int *, int *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    --------------------------------------------------- ----------- ------------
+    Metric Name                                         Metric Unit Metric Value
+    --------------------------------------------------- ----------- ------------
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.sum        inst            0
+    --------------------------------------------------- ----------- ------------
+

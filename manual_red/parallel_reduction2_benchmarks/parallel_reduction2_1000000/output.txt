@@ -1,0 +1,6 @@
+Running CUDA Reduction for size: 1000000
+GPU Memory Usage: 1300 MB / 81920 MB
+GPU Memory Usage: 1300 MB / 81920 MB
+Kernel Execution Time: 5.201696 ms
+Sum is 1000000
+GPU Memory Usage: 1300 MB / 81920 MB
