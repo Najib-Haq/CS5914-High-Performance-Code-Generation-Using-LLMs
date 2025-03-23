@@ -1,0 +1,183 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size)
+{
+    // Optimization Strategy:
+    // 1. **Loop Unrolling with Strided Access**: Each thread processes multiple elements by striding through the input array,
+    //    which maximizes memory throughput and handles large input sizes efficiently.
+    // 2. **Warp-Level Primitives (__shfl_down_sync)**: Utilizes warp shuffle operations to perform intra-warp reductions without
+    //    shared memory, reducing latency and avoiding bank conflicts.
+    // 3. **Shared Memory for Per-Warp Aggregation**: After intra-warp reductions, each warp's partial sum is stored in
+    //    shared memory. This minimizes global memory accesses and leverages the low latency of shared memory.
+    // 4. **Unconditional Loop for Final Reduction**: The final reduction within shared memory is unrolled to eliminate divergent branches,
+    //    ensuring consistent execution paths and enhanced performance.
+    // 5. **Boundary Checks**: Ensures that all memory accesses are within the bounds of the input array, maintaining correctness
+    //    across all input sizes from 1K to 1B elements.
+
+    extern __shared__ int shared_data[];
+
+    unsigned int tid = threadIdx.x;
+    unsigned int blockSize = blockDim.x;
+    unsigned int gridSize = blockSize * gridDim.x;
+
+    // Initialize local sum
+    int sum = 0;
+
+    // Grid-stride loop to accumulate partial sums
+    for (unsigned int idx = blockIdx.x * blockSize + tid; idx < size; idx += gridSize)
+    {
+        sum += input[idx];
+    }
+
+    // Intra-warp reduction using warp shuffle
+    // Assumes blockSize is a multiple of warp size (32)
+    for (int offset = warpSize / 2; offset > 0; offset /= 2)
+    {
+        sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+    }
+
+    // Each warp writes its local sum to shared memory
+    if ((tid & (warpSize - 1)) == 0)
+    {
+        shared_data[tid / warpSize] = sum;
+    }
+
+    __syncthreads();
+
+    // Only one warp performs the final reduction using shared memory
+    if (tid < (blockSize / warpSize))
+    {
+        sum = shared_data[tid];
+        // Final reduction within the first warp
+        for (int offset = warpSize / 2; offset > 0; offset /= 2)
+        {
+            sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+        }
+        // Store the block's result
+        if (tid == 0)
+        {
+            output[blockIdx.x] = sum;
+        }
+    }
+}
+```
+Performance:
+- Size 1024: 18.6789 ms
+- Size 1000000: 0.230208 ms
+- Size 1000000000: 5.53363 ms
+
+Implementation 2:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size)
+{
+    /*
+    Optimization Strategy:
+    1. **Grid-Stride Loop with Manual Unrolling**: Each thread processes multiple elements in the input array using a grid-stride loop with manual unrolling by a factor of 4. This reduces loop overhead and increases instruction-level parallelism, allowing threads to handle larger portions of the data efficiently.
+    
+    2. **Memory Coalescing**: Consecutive threads access consecutive memory locations, ensuring coalesced global memory accesses. This maximizes memory bandwidth utilization and reduces memory latency.
+    
+    3. **Intra-Warp Reduction Using Warp Shuffle Instructions (`__shfl_down_sync`)**: Utilizes warp-level primitives to perform reductions within a warp without relying on shared memory. This minimizes latency and avoids shared memory bank conflicts, leading to faster intra-warp reductions.
+    
+    4. **Per-Warp Partial Sums Stored in Shared Memory with Padding**: Each warp writes its partial sum to shared memory. Padding can be added if necessary to prevent shared memory bank conflicts, although with modern GPUs and careful access patterns, this is often minimized.
+    
+    5. **Final Block Reduction Using Warp Shuffle Instructions**: The first warp reads the partial sums from shared memory and performs a final reduction using warp shuffle instructions. This eliminates the need for additional synchronization and leverages the low latency of warp-level operations.
+    
+    6. **Minimized Synchronization and Divergent Execution**: By structuring the kernel to minimize the number of `__syncthreads()` calls and ensuring that all threads within a warp execute similar instructions, the kernel reduces synchronization overhead and avoids divergent execution paths, enhancing overall performance.
+    */
+
+    extern __shared__ int shared_data[];
+
+    // Calculate thread and block indices
+    unsigned int tid = threadIdx.x;
+    unsigned int blockSize = blockDim.x;
+    unsigned int gridSize = blockSize * gridDim.x;
+
+    // Initialize local sum
+    int sum = 0;
+
+    // Grid-stride loop with manual unrolling by a factor of 4
+    for(unsigned int i = tid; i < size; i += gridSize * 4)
+    {
+        if(i < size)
+            sum += input[i];
+        if(i + gridSize < size)
+            sum += input[i + gridSize];
+        if(i + 2 * gridSize < size)
+            sum += input[i + 2 * gridSize];
+        if(i + 3 * gridSize < size)
+            sum += input[i + 3 * gridSize];
+    }
+
+    // Intra-warp reduction using warp shuffle
+    for(int offset = warpSize / 2; offset > 0; offset /= 2)
+    {
+        sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+    }
+
+    // Write the per-warp partial sum to shared memory
+    if((tid % warpSize) == 0)
+    {
+        shared_data[tid / warpSize] = sum;
+    }
+
+    // Ensure all partial sums are written to shared memory
+    __syncthreads();
+
+    // Only the first warp performs the final reduction
+    if(tid < (blockSize / warpSize))
+    {
+        // Load the partial sums from shared memory
+        sum = shared_data[tid];
+
+        // Final reduction using warp shuffle
+        for(int offset = warpSize / 2; offset > 0; offset /= 2)
+        {
+            sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+        }
+
+        // Write the final block sum to the output array
+        if(tid == 0)
+        {
+            output[blockIdx.x] = sum;
+        }
+    }
+}
+```
+Performance:
+- Size 1024: 18.218 ms
+- Size 1000000000: 3.70099 ms
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

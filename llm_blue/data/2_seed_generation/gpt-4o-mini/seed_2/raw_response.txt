@@ -1,0 +1,40 @@
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Define shared memory for storing input data per block
+    extern __shared__ int sharedData[];
+
+    // Calculate the global thread index
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int localTid = threadIdx.x;
+
+    // Load elements into shared memory while handling array boundaries
+    sharedData[localTid] = (tid < size) ? input[tid] : 0;
+    
+    // Synchronize to ensure all data is loaded into shared memory
+    __syncthreads();
+
+    // Perform tree-based reduction in a warp-efficient manner
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (localTid < stride) {
+            sharedData[localTid] += sharedData[localTid + stride];
+        }
+        __syncthreads(); // Ensure all threads have completed the addition before proceeding
+    }
+
+    // Write the result of this block's reduction to global memory
+    if (localTid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+
+### Optimization Strategy:
+1. **Reduced Synchronization Points**: Synchronization only occurs after loading shared memory and at the end of the reduction loop, which minimizes stalls and allows for maximum parallelism during reduction.
+  
+2. **Optimized Memory Access**: Shared memory is accessed in a coalesced manner where each thread loads its corresponding global memory index to a unique slot in shared memory, reducing potential bank conflicts.
+
+3. **Tree-Based Reduction**: Utilizing a tree-based reduction method ensures that each thread is contributing to the reduction in a maximized parallel way while minimizing required operations per reduction step.
+
+4. **Thread Synchronization**: Using `__syncthreads()` only as necessary ensures that threads can proceed with computations without waiting unnecessarily, maintaining high throughput.
+
+By implementing these strategies, we can expect improved performance over traditional reductions, especially for larger datasets due to reduced overhead and better memory access patterns.

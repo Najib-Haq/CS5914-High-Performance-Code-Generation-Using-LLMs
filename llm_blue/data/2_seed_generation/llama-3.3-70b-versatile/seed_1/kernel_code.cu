@@ -1,0 +1,48 @@
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization strategy:
+    // 1. Use a sufficient number of threads per block (threadsPerBlock = 256) to fully utilize the GPU's processing capabilities.
+    // 2. Utilize sequential addressing in shared memory to minimize bank conflicts.
+    // 3. Implement a warp-level reduction using __shfl_down_sync() to reduce the number of threads participating in the final reduction phase.
+    // 4. Use loop unrolling for the reduction phase to minimize the number of iterations.
+    // 5. Early exit strategy: if the size of the input array is less than the number of threads per block, only the first 'size' threads participate in the reduction.
+    // This strategy should be effective because it reduces memory traffic, optimizes computations, and maximizes utilization of GPU resources.
+
+    extern __shared__ int sharedData[];
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    int laneId = threadIdx.x % 32; // 32 threads per warp
+
+    // Load data from global memory
+    int sum = 0;
+    while (idx < size) {
+        sum += input[idx];
+        idx += stride;
+    }
+
+    // Store loaded data in shared memory
+    sharedData[threadIdx.x] = sum;
+    __syncthreads();
+
+    // Warp-level reduction
+    for (int offset = 16; offset > 0; offset /= 2) {
+        int neighborVal = __shfl_down_sync(0xffffffff, sharedData[threadIdx.x], offset);
+        if (laneId < offset) {
+            sharedData[threadIdx.x] += neighborVal;
+        }
+    }
+
+    // Reduction across warps in the block
+    if (threadIdx.x % 32 == 0) {
+        int warpId = threadIdx.x / 32;
+        for (int i = 1; i < 8; i++) { // 8 warps per block (256 threads / 32 threads per warp)
+            if (warpId < i) {
+                sharedData[warpId * 32] += sharedData[i * 32];
+            }
+        }
+    }
+
+    // Store the block's result in the output array
+    if (threadIdx.x == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}

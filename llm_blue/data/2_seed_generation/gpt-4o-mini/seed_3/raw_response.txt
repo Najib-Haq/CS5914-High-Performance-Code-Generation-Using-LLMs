@@ -1,0 +1,44 @@
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Define shared memory for storing elements from input array
+    extern __shared__ int sharedData[];
+
+    // Calculate the global thread index and the local thread index within the block
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int localTid = threadIdx.x;
+
+    // Load elements from global memory to shared memory, handling array boundaries
+    sharedData[localTid] = (tid < size) ? input[tid] : 0;
+    
+    // Synchronize to ensure data is loaded
+    __syncthreads();
+
+    // Perform tree-based reduction using a loop
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        // Use warp-level primitive for intra-warp reduction to minimize synchronization overhead
+        if (localTid < stride) {
+            sharedData[localTid] += sharedData[localTid + stride];
+        }
+        __syncthreads(); // Necessary to ensure all threads participate fully in the addition
+    }
+
+    // Write the result of the block reduction to global memory
+    if (localTid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+
+### Optimization Strategy
+
+1. **Bank Conflicts**: Use shared memory efficiently by ensuring that access patterns for shared memory avoid bank conflicts.
+  
+2. **Warp-Level Primitives**: Consider using warp-level primitives such as `__shfl_down_sync` for reductions, which can help avoid synchronization within threads of a warp, thereby lowering overhead during intra-warp reductions.
+
+3. **Dynamic Synchronization**: Using `__syncthreads()` within the reduction stage guarantees each step completes before the next begins, ensuring correctness in addition while minimizing divergence.
+
+4. **Loop Unrolling**: In this implementation, the loop uses a straightforward method of consolidation, which can be enhanced with manual unrolling for further performance improvements.
+
+5. **Handling Array Boundaries**: The kernel safely checks index bounds while loading data, ensuring stability across all input sizes.
+
+By applying these strategies effectively, we expect higher performance, particularly for large input sizes due to reduced synchronization overhead and increased data throughput.

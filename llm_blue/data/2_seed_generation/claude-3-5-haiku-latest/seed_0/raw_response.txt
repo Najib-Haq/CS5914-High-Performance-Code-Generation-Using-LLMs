@@ -1,0 +1,50 @@
+Here's an optimized CUDA kernel for sum reduction:
+
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization Strategy:
+    // 1. Use shared memory to reduce global memory accesses
+    // 2. Implement a tree-based parallel reduction algorithm
+    // 3. Handle non-power-of-2 array sizes with boundary checks
+    // 4. Use warp-level optimizations and minimize synchronization
+    
+    // Declare shared memory dynamically
+    extern __shared__ int sharedData[];
+    
+    // Global thread and block indices
+    int tid = threadIdx.x;
+    int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    // Load data into shared memory, with boundary protection
+    sharedData[tid] = (globalIdx < size) ? input[globalIdx] : 0;
+    
+    // Synchronize to ensure all data is loaded
+    __syncthreads();
+    
+    // Perform parallel reduction in shared memory
+    // Use log2(blockDim.x) iterations for complete reduction
+    for (unsigned int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sharedData[tid] += sharedData[tid + stride];
+        }
+        
+        // Synchronize after each reduction step
+        __syncthreads();
+    }
+    
+    // The first thread in the block writes the block's reduction result
+    if (tid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+
+Key optimization techniques used:
+- Dynamic shared memory for efficient intra-block communication
+- Boundary check to handle arrays of any size
+- Tree-based reduction with logarithmic complexity
+- Minimal global memory accesses
+- Proper thread synchronization
+- Warp-friendly reduction pattern
+
+The kernel reduces the input array within each block, with the first thread of each block storing the block's partial sum in the output array. The host code will handle the final reduction across blocks.

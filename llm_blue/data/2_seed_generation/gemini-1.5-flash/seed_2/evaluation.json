@@ -1,0 +1,32 @@
+{
+  "model": "gemini-1.5-flash",
+  "seed": 2,
+  "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n  // Optimization Strategy:\n  // This kernel combines several optimizations for improved performance across various input sizes.  It employs a hybrid approach: a warp-level reduction using __shfl_down_sync() for initial reduction within each warp, followed by a tree-based reduction in shared memory. This minimizes global memory accesses and leverages the efficiency of warp-level primitives. Bank-conflict-free access is also used to optimize shared memory access.  The block size is chosen to be a multiple of the warp size (32) to fully utilize warp-level parallelism.  Early exit conditions are employed to handle cases where the input size is less than the block size.\n\n  const int warpSize = 32;\n  extern __shared__ int sdata[];\n\n  int i = blockIdx.x * blockDim.x + threadIdx.x;\n  int tid = threadIdx.x;\n\n  // Early exit if input size is smaller than block size.\n  if (i >= size) {\n    sdata[tid] = 0;\n    return;\n  }\n\n  // Load data from global memory to shared memory with bank-conflict free access.\n  sdata[tid] = input[i + (tid % warpSize) * (blockDim.x / warpSize)];\n  __syncthreads();\n\n  // Warp-level reduction using __shfl_down_sync\n  int sum = sdata[tid];\n  for (int offset = warpSize / 2; offset > 0; offset >>= 1) {\n    sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);\n  }\n\n  // Only the first thread of each warp writes to shared memory\n  if (tid % warpSize == 0) {\n    sdata[tid / warpSize] = sum;\n  }\n  __syncthreads();\n\n  // Tree-based reduction in shared memory\n  int numWarps = blockDim.x / warpSize;\n  for (int s = numWarps / 2; s > 0; s >>= 1) {\n    if (tid / warpSize < s) {\n      sdata[tid / warpSize] += sdata[tid / warpSize + s];\n    }\n    __syncthreads();\n  }\n\n  // Write the block sum to global memory\n  if (tid / warpSize == 0) {\n    output[blockIdx.x] = sdata[0];\n  }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 17.3507,
+      "sum_value": 900,
+      "is_correct": false,
+      "verification": "FAILED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.245792,
+      "sum_value": 999880,
+      "is_correct": false,
+      "verification": "FAILED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 5.54874,
+      "sum_value": 999999876,
+      "is_correct": false,
+      "verification": "FAILED"
+    }
+  }
+}

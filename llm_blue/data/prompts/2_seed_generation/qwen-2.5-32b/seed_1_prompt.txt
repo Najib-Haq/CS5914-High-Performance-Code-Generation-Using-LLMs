@@ -1,0 +1,71 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization Strategy:
+    // - The strategy employs a tree-based reduction algorithm using shared memory to minimize global memory access and to provide parallel reduction within a block.
+    // - Each thread initially loads a segment of the input data into shared memory for fast access.
+    // - The algorithm then reduces the data in multiple steps, halving the number of active threads with each step. This ensures that the reduction process is highly parallelized, making efficient use of GPU resources.
+    // - External memory access only occurs at the very end to store the result to global memory, minimizing memory transaction overhead.
+
+    extern __shared__ int sharedMem[];
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Load data into shared memory
+    int tempSum = (idx < size) ? input[idx] : 0;
+    sharedMem[tid] = tempSum;
+    __syncthreads();
+
+    // Perform tree-based reduction
+    for (int s=blockDim.x/2; s>0; s>>=1) {
+        if (tid < s) {
+            sharedMem[tid] += sharedMem[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Only thread 0 writes result for this block to global memory
+    if (tid == 0) {
+        output[blockIdx.x] = sharedMem[0];
+    }
+}
+```
+Performance:
+- Size 1024: 14.4466 ms
+- Size 1000000: 0.249184 ms
+- Size 1000000000: 6.00755 ms
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

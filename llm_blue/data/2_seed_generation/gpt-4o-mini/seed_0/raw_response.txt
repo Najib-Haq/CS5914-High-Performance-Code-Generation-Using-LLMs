@@ -1,0 +1,40 @@
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Define the number of threads in a block
+    extern __shared__ int sharedData[];
+
+    // Calculate the global thread index
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int localTid = threadIdx.x;
+
+    // Initialize shared memory for this block
+    // Load elements from global memory to shared memory
+    if (tid < size) {
+        sharedData[localTid] = input[tid];
+    } else {
+        sharedData[localTid] = 0; // Handle out-of-bounds by assigning zero
+    }
+    
+    // Synchronize to ensure all data is loaded
+    __syncthreads();
+
+    // Perform tree-based reduction in shared memory
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (localTid < stride) {
+            sharedData[localTid] += sharedData[localTid + stride];
+        }
+        __syncthreads(); // Wait for all threads to finish the reduction step
+    }
+
+    // Only the first thread in the block writes the result to global memory
+    if (localTid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+
+### Optimization Strategy:
+1. **Tree-Based Reduction:** This strategy reduces the number of additions by halving the number of active threads in each step, which leads to logarithmic performance improvements.
+2. **Shared Memory Usage:** Utilizing shared memory minimizes global memory accesses, which are expensive in terms of latency. Shared memory is much faster and facilitates data accessibility for threads in a block.
+3. **Synchronization:** Proper use of `__syncthreads()` ensures that threads only proceed when all necessary data is available, preventing race conditions while maximizing efficiency.
+4. **Boundary Handling:** The kernel checks for out-of-bounds access using the `size` parameter, ensuring robustness and preventing crashes when the total number of threads doesn't neatly divide the number of input elements. This is crucial for performance across varying input sizes, maintaining correctness while optimizing operations.

@@ -1,0 +1,32 @@
+{
+  "model": "claude-3-5-haiku-latest",
+  "seed": 4,
+  "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Maximize parallel reduction efficiency through hybrid approach\n    // 2. Use cooperative loading to reduce global memory accesses\n    // 3. Leverage warp shuffle instructions for low-overhead reductions\n    // 4. Minimize synchronization and branch divergence\n    // 5. Handle non-power-of-2 sizes with predicated loading\n    // 6. Use sequential shared memory addressing to reduce bank conflicts\n    \n    // Declare shared memory with careful layout to minimize bank conflicts\n    extern __shared__ int sharedData[];\n    \n    // Thread and global index calculations\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x * 2 + threadIdx.x;\n    \n    // Cooperative loading with boundary checks and two-element per thread load\n    int localSum = 0;\n    \n    // First cooperative load with boundary check\n    if (globalIdx < size) {\n        localSum = input[globalIdx];\n    }\n    \n    // Second cooperative load, avoiding redundant size check\n    if (globalIdx + blockDim.x < size) {\n        localSum += input[globalIdx + blockDim.x];\n    }\n    \n    // Warp-level reduction using shuffle instructions\n    // Aggressive unrolling for instruction-level parallelism\n    #pragma unroll\n    for (int offset = warpSize/2; offset > 0; offset /= 2) {\n        localSum += __shfl_down_sync(0xffffffff, localSum, offset);\n    }\n    \n    // Store warp reduction results in shared memory\n    // Use sequential addressing to minimize bank conflicts\n    if (tid % warpSize == 0) {\n        sharedData[tid / warpSize] = localSum;\n    }\n    \n    // Block-level synchronization\n    __syncthreads();\n    \n    // Final block reduction using first warp\n    if (tid < warpSize) {\n        // Load warp reduction results, handling potential empty warps\n        localSum = (tid < (blockDim.x * 2 + warpSize - 1) / warpSize) ? \n                   sharedData[tid] : 0;\n        \n        // Final warp-level shuffle reduction\n        #pragma unroll\n        for (int offset = warpSize/2; offset > 0; offset /= 2) {\n            localSum += __shfl_down_sync(0xffffffff, localSum, offset);\n        }\n        \n        // First thread writes block result\n        if (tid == 0) {\n            output[blockIdx.x] = localSum;\n        }\n    }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 18.8805,
+      "sum_value": 1024,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.252512,
+      "sum_value": 1000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 7.03939,
+      "sum_value": 1000000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    }
+  }
+}

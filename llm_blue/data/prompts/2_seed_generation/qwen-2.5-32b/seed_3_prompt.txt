@@ -1,0 +1,123 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+// Optimized Kernel using Warps to Reduce Bank Conflicts and Improve Performance
+// - Utilizes warp-level reduction followed by block-level reduction for efficient parallelism
+// - Uses __shfl_down_sync to perform reduction within each warp, reducing bank conflicts and improving shared memory usage
+// - This strategy reduces the number of synchronization points and minimizes thread divergence for better performance
+// - Early termination for threads not involved in reduction steps minimizes unnecessary work
+// - Handles boundary cases and odd-sized arrays efficiently
+// - Aims to minimize global memory access, ensure efficient shared memory allocation and usage, and enhance parallelism for high throughput
+
+__global__ void sumReduction(int *input, int *output, int size) {
+    extern __shared__ int sharedMem[];
+    const int tid = threadIdx.x;
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int data = (idx < size) ? input[idx] : 0;
+
+    // Load data into shared memory
+    sharedMem[threadIdx.x] = data;
+
+    // Ensure all threads have loaded their data into shared memory
+    __syncthreads();
+
+    // Number of input elements per thread
+    int offset = 1;
+
+    // Warp-level reduction using shuffle operations
+    for (offset = 1; offset < blockDim.x; offset <<= 1) {
+        int lane = threadIdx.x & (offset - 1);
+        if (lane < offset) {
+            sharedMem[threadIdx.x] += __shfl_down_sync(0xFFFFFFFF, sharedMem[threadIdx.x], offset);
+        }
+        __syncthreads();
+    }
+
+    // The final sum in each block is stored by the first thread
+    if (threadIdx.x == 0) {
+        output[blockIdx.x] = sharedMem[0];
+    }
+}
+```
+Performance:
+- Size 1024: 15.8076 ms
+- Size 1000000000: 7.12266 ms
+
+Implementation 2:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization Strategy:
+    // This strategy uses warp-striped memory access to minimize bank conflicts. It also uses the __shfl_down_sync function for warp-level reductions, which reduces the overhead of __syncthreads calls, allowing for more efficient reduction within threads. 
+    // Early exit strategies are implemented to avoid unnecessary computations for threads that finish early in the reduction process, minimizing redundant work and divergence. 
+    // Additionally, it uses shared memory efficiently to store intermediate results and provides a balanced combination of warp-level and block-level reduction phases to handle a variety of input sizes effectively.
+    // This should improve performance, especially for large input sizes by leveraging the execution model of modern GPUs better.
+
+    extern __shared__ int sharedMem[];
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Load data into shared memory with warp-striped access to avoid bank conflicts
+    int data = (idx < size) ? input[idx] : 0;
+    int warpSize = 32;
+    int offset = 0;
+
+    sharedMem[tid] = data;
+
+    // Perform warp-level reduction
+    for (offset = warpSize / 2; offset > 0; offset >>= 1) {
+        sharedMem[tid] += __shfl_down_sync(0xFFFFFFFF, sharedMem[tid], offset);
+    }
+
+    __syncthreads();
+
+    // Continue with block-level reduction using first warp of threads
+    if (tid < warpSize) {
+        for (offset = warpSize; offset < blockDim.x; offset <<= 1) {
+            if (tid < offset) {
+                sharedMem[tid] += sharedMem[tid + offset];
+            }
+            __syncthreads();
+        }
+    }
+
+    // Write the result for the block to the output array
+    if (tid == 0) {
+        output[blockIdx.x] = sharedMem[0];
+    }
+}
+```
+Performance:
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

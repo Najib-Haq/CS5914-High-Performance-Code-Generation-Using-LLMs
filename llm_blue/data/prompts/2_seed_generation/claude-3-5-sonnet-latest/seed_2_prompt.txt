@@ -1,0 +1,162 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+/*
+ * Optimization strategy:
+ * 1. Uses sequential addressing to avoid bank conflicts in shared memory
+ * 2. Unrolls the last warp to avoid unnecessary synchronization
+ * 3. Uses template loop unrolling for reducing shared memory accesses
+ * 4. Processes multiple elements per thread during load to reduce total threads needed
+ * 5. Uses volatile shared memory for warp operations to ensure proper memory ordering
+ */
+__global__ void sumReduction(int *input, int *output, int size) {
+    extern __shared__ int sdata[];
+    
+    // Each thread loads and adds 4 elements to shared memory
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x * (blockDim.x * 4) + threadIdx.x;
+    unsigned int gridSize = blockDim.x * 4 * gridDim.x;
+    
+    // Initialize shared memory with identity value
+    sdata[tid] = 0;
+    
+    // Grid-stride loop to handle large arrays
+    while (i < size) {
+        int sum = 0;
+        if (i < size) sum += input[i];
+        if (i + blockDim.x < size) sum += input[i + blockDim.x];
+        if (i + 2 * blockDim.x < size) sum += input[i + 2 * blockDim.x];
+        if (i + 3 * blockDim.x < size) sum += input[i + 3 * blockDim.x];
+        sdata[tid] += sum;
+        i += gridSize;
+    }
+    __syncthreads();
+
+    // Do reduction in shared memory
+    if (blockDim.x >= 1024) { if (tid < 512) { sdata[tid] += sdata[tid + 512]; } __syncthreads(); }
+    if (blockDim.x >= 512) { if (tid < 256) { sdata[tid] += sdata[tid + 256]; } __syncthreads(); }
+    if (blockDim.x >= 256) { if (tid < 128) { sdata[tid] += sdata[tid + 128]; } __syncthreads(); }
+    if (blockDim.x >= 128) { if (tid < 64) { sdata[tid] += sdata[tid + 64]; } __syncthreads(); }
+    
+    // Unroll last 6 iterations (warp is synchronized)
+    if (tid < 32) {
+        volatile int *smem = sdata;
+        if (blockDim.x >= 64) smem[tid] += smem[tid + 32];
+        smem[tid] += smem[tid + 16];
+        smem[tid] += smem[tid + 8];
+        smem[tid] += smem[tid + 4];
+        smem[tid] += smem[tid + 2];
+        smem[tid] += smem[tid + 1];
+    }
+    
+    // Write result for this block to global memory
+    if (tid == 0) output[blockIdx.x] = sdata[0];
+}
+```
+Performance:
+- Size 1024: 18.7914 ms
+- Size 1000000: 0.260864 ms
+
+Implementation 2:
+```cuda
+/*
+ * Optimization strategy:
+ * 1. Uses warp-level primitives (__shfl_down_sync) to eliminate shared memory and sync in final warp
+ * 2. Processes 8 elements per thread during load to reduce total thread count and memory transactions
+ * 3. Uses sequential addressing to prevent shared memory bank conflicts
+ * 4. Employs template-style loop unrolling for the reduction phase
+ * 5. Minimizes divergent execution with predicated operations where possible
+ * 6. Uses grid-stride loop for handling arbitrary input sizes efficiently
+ * 7. Maintains coalesced memory access patterns during initial loading phase
+ */
+__global__ void sumReduction(int *input, int *output, int size) {
+    extern __shared__ int sdata[];
+    
+    // Thread and block index
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * (blockDim.x * 8) + threadIdx.x;
+    unsigned int gridSize = blockDim.x * 8 * gridDim.x;
+    
+    // Initialize thread-local sum
+    int thread_sum = 0;
+
+    // Grid-stride loop, each thread processes 8 elements at a time
+    while (idx < size) {
+        int temp_sum = 0;
+        #pragma unroll
+        for (int i = 0; i < 8; i++) {
+            unsigned int current = idx + i * blockDim.x;
+            if (current < size) {
+                temp_sum += input[current];
+            }
+        }
+        thread_sum += temp_sum;
+        idx += gridSize;
+    }
+    
+    // Store in shared memory
+    sdata[tid] = thread_sum;
+    __syncthreads();
+
+    // Reduction in shared memory
+    #pragma unroll
+    for (unsigned int s = blockDim.x/2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Warp-level reduction using shuffle
+    if (tid < 32) {
+        int value = sdata[tid];
+        value += tid + 32 < blockDim.x ? sdata[tid + 32] : 0;
+        
+        #pragma unroll
+        for (int offset = 16; offset > 0; offset >>= 1) {
+            value += __shfl_down_sync(0xffffffff, value, offset);
+        }
+        
+        if (tid == 0) {
+            output[blockIdx.x] = value;
+        }
+    }
+}
+```
+Performance:
+- Size 1024: 29.3365 ms
+- Size 1000000: 0.26976 ms
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

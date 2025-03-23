@@ -1,0 +1,105 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Define shared memory for storing input data per block
+    extern __shared__ int sharedData[];
+
+    // Calculate the global thread index
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int localTid = threadIdx.x;
+
+    // Load elements into shared memory while handling array boundaries
+    sharedData[localTid] = (tid < size) ? input[tid] : 0;
+    
+    // Synchronize to ensure all data is loaded into shared memory
+    __syncthreads();
+
+    // Perform tree-based reduction in a warp-efficient manner
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        if (localTid < stride) {
+            sharedData[localTid] += sharedData[localTid + stride];
+        }
+        __syncthreads(); // Ensure all threads have completed the addition before proceeding
+    }
+
+    // Write the result of this block's reduction to global memory
+    if (localTid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+Performance:
+- Size 1024: 0.246784 ms
+- Size 1000000: 0.225536 ms
+- Size 1000000000: 5.9816 ms
+
+Implementation 2:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Define shared memory for storing elements from input array
+    extern __shared__ int sharedData[];
+
+    // Calculate the global thread index and the local thread index within the block
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int localTid = threadIdx.x;
+
+    // Load elements from global memory to shared memory, handling array boundaries
+    sharedData[localTid] = (tid < size) ? input[tid] : 0;
+    
+    // Synchronize to ensure data is loaded
+    __syncthreads();
+
+    // Perform tree-based reduction using a loop
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+        // Use warp-level primitive for intra-warp reduction to minimize synchronization overhead
+        if (localTid < stride) {
+            sharedData[localTid] += sharedData[localTid + stride];
+        }
+        __syncthreads(); // Necessary to ensure all threads participate fully in the addition
+    }
+
+    // Write the result of the block reduction to global memory
+    if (localTid == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}
+```
+Performance:
+- Size 1024: 0.234496 ms
+- Size 1000000: 0.215872 ms
+- Size 1000000000: 6.01686 ms
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

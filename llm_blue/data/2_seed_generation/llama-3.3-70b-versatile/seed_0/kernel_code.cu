@@ -1,0 +1,41 @@
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization strategy: 
+    // 1. Use shared memory to minimize global memory accesses, which are slower.
+    // 2. Implement a tree-based reduction to minimize the number of operations required.
+    // 3. Use a sufficient number of threads per block to fully utilize the GPU's processing capabilities.
+    // This strategy should be effective because it reduces memory traffic, optimizes computations, and maximizes utilization of GPU resources.
+
+    extern __shared__ int sharedData[];
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+
+    // Initialize shared memory with 0s
+    sharedData[threadIdx.x] = 0;
+    __syncthreads();
+
+    // Load data from global memory into shared memory
+    int sum = 0;
+    while (idx < size) {
+        sum += input[idx];
+        idx += stride;
+    }
+
+    // Store loaded data in shared memory
+    sharedData[threadIdx.x] = sum;
+    __syncthreads();
+
+    // Perform tree-based reduction in shared memory
+    int offset = blockDim.x / 2;
+    while (offset > 0) {
+        if (threadIdx.x < offset) {
+            sharedData[threadIdx.x] += sharedData[threadIdx.x + offset];
+        }
+        __syncthreads();
+        offset /= 2;
+    }
+
+    // Store the block's result in the output array
+    if (threadIdx.x == 0) {
+        output[blockIdx.x] = sharedData[0];
+    }
+}

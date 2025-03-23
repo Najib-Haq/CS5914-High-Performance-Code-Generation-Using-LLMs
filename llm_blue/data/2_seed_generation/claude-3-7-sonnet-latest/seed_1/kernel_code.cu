@@ -1,0 +1,54 @@
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization strategy:
+    // 1. Use sequential addressing to minimize bank conflicts
+    // 2. Process multiple elements per thread during loading to reduce total work
+    // 3. Employ compile-time unrolling for smaller arrays and warp-level primitives for better performance
+    // 4. Use warp shuffle operations for the final reduction steps to eliminate shared memory and sync
+    // 5. Combine elements during loading to reduce shared memory pressure and number of reduction steps
+    // 6. Handle arbitrary sized inputs with proper boundary checks
+    
+    extern __shared__ int sdata[];
+    
+    unsigned int tid = threadIdx.x;
+    unsigned int blockSize = blockDim.x;
+    unsigned int gridSize = blockDim.x * gridDim.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    // Each thread loads and adds multiple elements with grid stride
+    int thread_sum = 0;
+    
+    // Grid-stride loop to handle large arrays efficiently
+    for (unsigned int i = globalIdx; i < size; i += gridSize) {
+        thread_sum += input[i];
+    }
+    
+    // Load thread sum into shared memory
+    sdata[tid] = thread_sum;
+    __syncthreads();
+    
+    // Perform first level of reduction in shared memory
+    // Use sequential addressing to avoid bank conflicts
+    for (unsigned int s = blockSize / 2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+    
+    // Unroll the last warp (32 threads) using warp shuffle operations
+    // This eliminates the need for shared memory and __syncthreads()
+    if (tid < 32) {
+        int value = sdata[tid];
+        
+        // Use warp shuffle operations for the final reduction steps
+        #pragma unroll
+        for (int offset = 32/2; offset > 0; offset >>= 1) {
+            value += __shfl_down_sync(0xffffffff, value, offset);
+        }
+        
+        // First thread in the warp writes the final result for this block
+        if (tid == 0) {
+            output[blockIdx.x] = value;
+        }
+    }
+}

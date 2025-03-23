@@ -1,0 +1,139 @@
+You are an expert in high-performance CUDA programming. Generate a CUDA kernel function that performs a sum reduction on an array of integers.
+
+Implement ONLY the kernel function with this exact signature:
+__global__ void sumReduction(int *input, int *output, int size)
+
+The kernel should:
+- Take an input array of integers, an output array to store block results, and the size of the input array
+- Use shared memory appropriately sized with extern __shared__
+- Handle array boundaries correctly using the 'size' parameter
+- Use tree-based reduction for high performance
+- Use synchronization appropriately
+- Aim for the best performance across all input sizes (1K to 1B elements)
+
+Here are previous kernel implementations with their performance metrics:
+
+Implementation 1:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+  // Optimization Strategy:
+  // This kernel combines several optimizations for improved performance across various input sizes.  It employs a hybrid approach: a warp-level reduction using __shfl_down_sync() for initial reduction within each warp, followed by a tree-based reduction in shared memory. This minimizes global memory accesses and leverages the efficiency of warp-level primitives. Bank-conflict-free access is also used to optimize shared memory access.  The block size is chosen to be a multiple of the warp size (32) to fully utilize warp-level parallelism.  Early exit conditions are employed to handle cases where the input size is less than the block size.
+
+  const int warpSize = 32;
+  extern __shared__ int sdata[];
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int tid = threadIdx.x;
+
+  // Early exit if input size is smaller than block size.
+  if (i >= size) {
+    sdata[tid] = 0;
+    return;
+  }
+
+  // Load data from global memory to shared memory with bank-conflict free access.
+  sdata[tid] = input[i + (tid % warpSize) * (blockDim.x / warpSize)];
+  __syncthreads();
+
+  // Warp-level reduction using __shfl_down_sync
+  int sum = sdata[tid];
+  for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+    sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+  }
+
+  // Only the first thread of each warp writes to shared memory
+  if (tid % warpSize == 0) {
+    sdata[tid / warpSize] = sum;
+  }
+  __syncthreads();
+
+  // Tree-based reduction in shared memory
+  int numWarps = blockDim.x / warpSize;
+  for (int s = numWarps / 2; s > 0; s >>= 1) {
+    if (tid / warpSize < s) {
+      sdata[tid / warpSize] += sdata[tid / warpSize + s];
+    }
+    __syncthreads();
+  }
+
+  // Write the block sum to global memory
+  if (tid / warpSize == 0) {
+    output[blockIdx.x] = sdata[0];
+  }
+}
+```
+Performance:
+
+Implementation 2:
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+  // Optimization Strategy:
+  // This kernel utilizes a hybrid approach combining warp-level reductions with a tree-based reduction in shared memory.  It prioritizes minimizing global memory accesses and maximizing warp-level parallelism.  
+  // Bank conflict-free access is ensured in shared memory using modulo operations. Early exit conditions handle cases where the input size is smaller than the block size, preventing unnecessary computations.
+  //  The choice of block size is a compromise between maximizing occupancy and minimizing the number of blocks for the final reduction.
+
+  const int warpSize = 32;
+  extern __shared__ int sdata[];
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int tid = threadIdx.x;
+
+  // Early exit if input size is smaller than block size.
+  if (i >= size) {
+    sdata[tid] = 0;
+    return;
+  }
+
+  // Load data from global memory to shared memory with bank-conflict-free access.
+  sdata[tid] = input[i + (tid % warpSize) * (blockDim.x / warpSize)];
+  __syncthreads();
+
+
+  //Warp-level reduction using __shfl_down_sync
+  int sum = sdata[tid];
+  for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+    sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+  }
+
+  //Only the first thread of each warp writes to shared memory.
+  if (tid % warpSize == 0) {
+    sdata[tid / warpSize] = sum;
+  }
+  __syncthreads();
+
+  //Tree-based reduction in shared memory.  Optimized for power-of-two block sizes for simplicity.
+  int numWarps = blockDim.x / warpSize;
+  for (int s = numWarps / 2; s > 0; s >>= 1) {
+    if (tid / warpSize < s) {
+      sdata[tid / warpSize] += sdata[tid / warpSize + s];
+    }
+    __syncthreads();
+  }
+
+  // Write the block sum to global memory
+  if (tid / warpSize == 0) {
+    output[blockIdx.x] = sdata[0];
+  }
+}
+```
+Performance:
+
+IMPORTANT: Analyze the strengths and weaknesses of the previous implementations before designing your approach.
+
+Consider implementing a different strategy such as but not limited to:
+- Bank-conflict-free memory access patterns
+- Sequential addressing vs. strided addressing
+- Warp-level primitives like __shfl_down_sync() for warp-level reductions
+- Loop unrolling for the reduction phase
+- Early exit strategies to reduce unnecessary work
+- Minimizing divergent execution paths
+
+Your goal is to create an implementation that performs better than previous ones, especially for large input sizes (1B elements).
+
+First, briefly explain (in comments) your optimization strategy and why you believe it will be effective.
+
+The wrapper code will:
+- Call your kernel with blocks and threads: sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_output, size)
+- Handle the final reduction across blocks
+
+Output ONLY the kernel function, starting with __global__ void sumReduction

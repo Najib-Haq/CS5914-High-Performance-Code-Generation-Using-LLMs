@@ -1,0 +1,32 @@
+{
+  "model": "claude-3-5-haiku-latest",
+  "seed": 0,
+  "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Use shared memory to reduce global memory accesses\n    // 2. Implement a tree-based parallel reduction algorithm\n    // 3. Handle non-power-of-2 array sizes with boundary checks\n    // 4. Use warp-level optimizations and minimize synchronization\n    \n    // Declare shared memory dynamically\n    extern __shared__ int sharedData[];\n    \n    // Global thread and block indices\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;\n    \n    // Load data into shared memory, with boundary protection\n    sharedData[tid] = (globalIdx < size) ? input[globalIdx] : 0;\n    \n    // Synchronize to ensure all data is loaded\n    __syncthreads();\n    \n    // Perform parallel reduction in shared memory\n    // Use log2(blockDim.x) iterations for complete reduction\n    for (unsigned int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n        if (tid < stride) {\n            sharedData[tid] += sharedData[tid + stride];\n        }\n        \n        // Synchronize after each reduction step\n        __syncthreads();\n    }\n    \n    // The first thread in the block writes the block's reduction result\n    if (tid == 0) {\n        output[blockIdx.x] = sharedData[0];\n    }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 14.5961,
+      "sum_value": 1024,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.25136,
+      "sum_value": 1000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 5.96022,
+      "sum_value": 1000000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    }
+  }
+}

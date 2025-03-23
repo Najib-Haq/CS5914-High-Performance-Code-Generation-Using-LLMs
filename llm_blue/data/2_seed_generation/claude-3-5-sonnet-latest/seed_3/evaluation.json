@@ -1,0 +1,32 @@
+{
+  "model": "claude-3-5-sonnet-latest",
+  "seed": 3,
+  "kernel_code": "/*\n * Optimization strategy:\n * 1. Processes 32 elements per thread during load to maximize arithmetic intensity\n *    and minimize memory transactions (better for very large arrays)\n * 2. Uses three-stage reduction:\n *    a) Sequential accumulation during loading (32 elements)\n *    b) Warp-level reduction using shuffle operations\n *    c) Cross-warp reduction using minimal shared memory\n * 3. Employs vectorized loads (int4) where possible to improve memory throughput\n * 4. Uses grid-stride processing with careful boundary handling\n * 5. Minimizes shared memory usage to maximize occupancy\n * 6. Reduces synchronization points to absolute minimum\n * 7. Completely eliminates bank conflicts through sequential addressing\n * 8. Uses template metaprogramming-style unrolling for critical paths\n */\n__global__ void sumReduction(int *input, int *output, int size) {\n    extern __shared__ int sdata[];\n    \n    const unsigned int tid = threadIdx.x;\n    const unsigned int lane = tid & 31;\n    const unsigned int wid = tid >> 5;\n    const unsigned int gridSize = blockDim.x * gridDim.x * 32;\n    unsigned int idx = blockIdx.x * (blockDim.x * 32) + tid;\n    \n    // Thread-local sum\n    long long sum = 0; // Using long long to prevent overflow during accumulation\n    \n    // Grid-stride loop, each thread handles 32 elements\n    while (idx < size) {\n        // Vectorized loads where possible\n        if (idx + 31 * blockDim.x < size && (idx % 4) == 0) {\n            int4 in4;\n            #pragma unroll\n            for (int i = 0; i < 8; i++) {\n                in4 = reinterpret_cast<int4*>(input)[idx/4 + i * blockDim.x/4];\n                sum += in4.x + in4.y + in4.z + in4.w;\n            }\n        } else {\n            // Regular loads for boundary cases\n            #pragma unroll\n            for (int i = 0; i < 32; i++) {\n                if (idx + i * blockDim.x < size) {\n                    sum += input[idx + i * blockDim.x];\n                }\n            }\n        }\n        idx += gridSize;\n    }\n    \n    // Warp-level reduction using shuffle\n    #pragma unroll\n    for (int offset = 16; offset > 0; offset >>= 1) {\n        sum += __shfl_down_sync(0xffffffff, sum, offset);\n    }\n    \n    // Write warp results to shared memory\n    if (lane == 0) {\n        sdata[wid] = static_cast<int>(sum);\n    }\n    __syncthreads();\n    \n    // Final reduction (only first warp)\n    if (wid == 0) {\n        sum = (lane < (blockDim.x >> 5)) ? sdata[lane] : 0;\n        \n        #pragma unroll\n        for (int offset = (blockDim.x >> 6); offset > 0; offset >>= 1) {\n            sum += __shfl_down_sync(0xffffffff, sum, offset);\n        }\n        \n        if (lane == 0) {\n            output[blockIdx.x] = static_cast<int>(sum);\n        }\n    }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 51.1099,
+      "sum_value": 1024,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.306144,
+      "sum_value": 1000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 45.1611,
+      "sum_value": null,
+      "is_correct": false,
+      "verification": "FAILED"
+    }
+  }
+}

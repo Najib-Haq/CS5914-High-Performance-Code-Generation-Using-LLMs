@@ -1,0 +1,32 @@
+{
+  "model": "gpt-4o-mini",
+  "seed": 2,
+  "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Define shared memory for storing input data per block\n    extern __shared__ int sharedData[];\n\n    // Calculate the global thread index\n    int tid = blockIdx.x * blockDim.x + threadIdx.x;\n    int localTid = threadIdx.x;\n\n    // Load elements into shared memory while handling array boundaries\n    sharedData[localTid] = (tid < size) ? input[tid] : 0;\n    \n    // Synchronize to ensure all data is loaded into shared memory\n    __syncthreads();\n\n    // Perform tree-based reduction in a warp-efficient manner\n    for (int stride = blockDim.x / 2; stride > 0; stride /= 2) {\n        if (localTid < stride) {\n            sharedData[localTid] += sharedData[localTid + stride];\n        }\n        __syncthreads(); // Ensure all threads have completed the addition before proceeding\n    }\n\n    // Write the result of this block's reduction to global memory\n    if (localTid == 0) {\n        output[blockIdx.x] = sharedData[0];\n    }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.246784,
+      "sum_value": 1024,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.225536,
+      "sum_value": 1000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 5.9816,
+      "sum_value": 1000000000,
+      "is_correct": true,
+      "verification": "PASSED"
+    }
+  }
+}

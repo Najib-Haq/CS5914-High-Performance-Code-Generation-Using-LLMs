@@ -1,0 +1,48 @@
+__global__ void sumReduction(int *input, int *output, int size)
+{
+    // Optimization Strategy:
+    // 1. Utilize shared memory (extern __shared__) to store partial sums for faster access.
+    // 2. Each thread processes two elements to reduce the number of required iterations.
+    // 3. Apply tree-based reduction within shared memory to efficiently sum elements.
+    // 4. Unroll the last warp to minimize synchronization overhead and maximize performance.
+    // 5. Handle boundaries by checking against 'size' to ensure correctness for all input sizes.
+
+    extern __shared__ int shared_data[];
+
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x * 2 + threadIdx.x;
+
+    // Load elements into shared memory, processing two elements per thread
+    int sum = 0;
+    if (idx < size)
+        sum += input[idx];
+    if (idx + blockDim.x < size)
+        sum += input[idx + blockDim.x];
+    
+    shared_data[tid] = sum;
+    __syncthreads();
+
+    // Tree-based reduction in shared memory
+    for (unsigned int stride = blockDim.x / 2; stride > 32; stride >>= 1)
+    {
+        if (tid < stride)
+            shared_data[tid] += shared_data[tid + stride];
+        __syncthreads();
+    }
+
+    // Unroll the last warp for maximum performance
+    if (tid < 32)
+    {
+        volatile int* sm = shared_data;
+        sm[tid] += sm[tid + 32];
+        sm[tid] += sm[tid + 16];
+        sm[tid] += sm[tid + 8];
+        sm[tid] += sm[tid + 4];
+        sm[tid] += sm[tid + 2];
+        sm[tid] += sm[tid + 1];
+    }
+
+    // Write the result of this block to the output array
+    if (tid == 0)
+        output[blockIdx.x] = shared_data[0];
+}

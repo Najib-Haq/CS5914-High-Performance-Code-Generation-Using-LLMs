@@ -1,0 +1,32 @@
+{
+  "model": "llama-3.3-70b-versatile",
+  "seed": 1,
+  "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization strategy:\n    // 1. Use a sufficient number of threads per block (threadsPerBlock = 256) to fully utilize the GPU's processing capabilities.\n    // 2. Utilize sequential addressing in shared memory to minimize bank conflicts.\n    // 3. Implement a warp-level reduction using __shfl_down_sync() to reduce the number of threads participating in the final reduction phase.\n    // 4. Use loop unrolling for the reduction phase to minimize the number of iterations.\n    // 5. Early exit strategy: if the size of the input array is less than the number of threads per block, only the first 'size' threads participate in the reduction.\n    // This strategy should be effective because it reduces memory traffic, optimizes computations, and maximizes utilization of GPU resources.\n\n    extern __shared__ int sharedData[];\n    int idx = blockIdx.x * blockDim.x + threadIdx.x;\n    int stride = blockDim.x * gridDim.x;\n    int laneId = threadIdx.x % 32; // 32 threads per warp\n\n    // Load data from global memory\n    int sum = 0;\n    while (idx < size) {\n        sum += input[idx];\n        idx += stride;\n    }\n\n    // Store loaded data in shared memory\n    sharedData[threadIdx.x] = sum;\n    __syncthreads();\n\n    // Warp-level reduction\n    for (int offset = 16; offset > 0; offset /= 2) {\n        int neighborVal = __shfl_down_sync(0xffffffff, sharedData[threadIdx.x], offset);\n        if (laneId < offset) {\n            sharedData[threadIdx.x] += neighborVal;\n        }\n    }\n\n    // Reduction across warps in the block\n    if (threadIdx.x % 32 == 0) {\n        int warpId = threadIdx.x / 32;\n        for (int i = 1; i < 8; i++) { // 8 warps per block (256 threads / 32 threads per warp)\n            if (warpId < i) {\n                sharedData[warpId * 32] += sharedData[i * 32];\n            }\n        }\n    }\n\n    // Store the block's result in the output array\n    if (threadIdx.x == 0) {\n        output[blockIdx.x] = sharedData[0];\n    }\n}",
+  "kernel_name": "sumReduction",
+  "sizes": {
+    "1024": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 25.7198,
+      "sum_value": 1024,
+      "is_correct": true,
+      "verification": "PASSED"
+    },
+    "1000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 0.263232,
+      "sum_value": 976328,
+      "is_correct": false,
+      "verification": "FAILED"
+    },
+    "1000000000": {
+      "compilation_success": true,
+      "run_success": true,
+      "execution_time_ms": 8.04253,
+      "sum_value": 971276852,
+      "is_correct": false,
+      "verification": "FAILED"
+    }
+  }
+}

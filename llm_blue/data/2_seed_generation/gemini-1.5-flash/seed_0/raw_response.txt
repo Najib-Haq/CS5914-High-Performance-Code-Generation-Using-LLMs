@@ -1,0 +1,35 @@
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+  // Optimization Strategy:
+  // This kernel uses a tree-based reduction within each block, maximizing shared memory usage and minimizing global memory accesses.  
+  // The choice of threadsPerBlock is not hardcoded to adapt to different sizes.  The algorithm efficiently handles any power-of-two size and gracefully handles non-power-of-two sizes by processing the remainder separately.
+  // Synchronization using __syncthreads() ensures data consistency between threads within a block.
+
+  extern __shared__ int sdata[]; // Allocate shared memory dynamically
+
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int tid = threadIdx.x;
+
+  // Load data from global memory to shared memory
+  if (i < size) {
+    sdata[tid] = input[i];
+  } else {
+    sdata[tid] = 0; // Initialize to 0 for indices beyond the input array size.
+  }
+  __syncthreads();
+
+
+  // Tree-based reduction in shared memory
+  for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+    if (tid < s) {
+      sdata[tid] += sdata[tid + s];
+    }
+    __syncthreads();
+  }
+
+  // Write the block sum to global memory
+  if (tid == 0) {
+    output[blockIdx.x] = sdata[0];
+  }
+}
+```

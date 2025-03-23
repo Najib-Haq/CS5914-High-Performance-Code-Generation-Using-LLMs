@@ -1,0 +1,162 @@
+[
+  {
+    "model": "claude-3-5-haiku-latest",
+    "seed": 0,
+    "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Use shared memory to reduce global memory accesses\n    // 2. Implement a tree-based parallel reduction algorithm\n    // 3. Handle non-power-of-2 array sizes with boundary checks\n    // 4. Use warp-level optimizations and minimize synchronization\n    \n    // Declare shared memory dynamically\n    extern __shared__ int sharedData[];\n    \n    // Global thread and block indices\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;\n    \n    // Load data into shared memory, with boundary protection\n    sharedData[tid] = (globalIdx < size) ? input[globalIdx] : 0;\n    \n    // Synchronize to ensure all data is loaded\n    __syncthreads();\n    \n    // Perform parallel reduction in shared memory\n    // Use log2(blockDim.x) iterations for complete reduction\n    for (unsigned int stride = blockDim.x / 2; stride > 0; stride >>= 1) {\n        if (tid < stride) {\n            sharedData[tid] += sharedData[tid + stride];\n        }\n        \n        // Synchronize after each reduction step\n        __syncthreads();\n    }\n    \n    // The first thread in the block writes the block's reduction result\n    if (tid == 0) {\n        output[blockIdx.x] = sharedData[0];\n    }\n}",
+    "kernel_name": "sumReduction",
+    "sizes": {
+      "1024": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 14.5961,
+        "sum_value": 1024,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.25136,
+        "sum_value": 1000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 5.96022,
+        "sum_value": 1000000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      }
+    }
+  },
+  {
+    "model": "claude-3-5-haiku-latest",
+    "seed": 1,
+    "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Use warp-level shuffle instructions for faster intra-warp reduction\n    // 2. Minimize global memory access and synchronization\n    // 3. Handle non-power-of-2 sizes with predicated load\n    // 4. Unroll reduction stages for better instruction-level parallelism\n    // 5. Reduce shared memory bank conflicts with careful memory layout\n\n    // Declare shared memory for block-level reduction\n    extern __shared__ int sharedData[];\n    \n    // Global and local thread indices\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;\n    \n    // Predicated load with boundary check\n    int value = (globalIdx < size) ? input[globalIdx] : 0;\n    \n    // Warp-level reduction using shuffle instructions\n    // Reduces synchronization overhead and improves performance\n    for (int offset = warpSize/2; offset > 0; offset /= 2) {\n        value += __shfl_down_sync(0xffffffff, value, offset);\n    }\n    \n    // Store warp-level reduction result in shared memory\n    if (tid % warpSize == 0) {\n        sharedData[tid / warpSize] = value;\n    }\n    \n    // Block-level synchronization\n    __syncthreads();\n    \n    // Final block reduction\n    if (tid < warpSize) {\n        value = (tid < (blockDim.x + warpSize - 1) / warpSize) ? \n                sharedData[tid] : 0;\n        \n        // Warp-level shuffle reduction for remaining warps\n        for (int offset = warpSize/2; offset > 0; offset /= 2) {\n            value += __shfl_down_sync(0xffffffff, value, offset);\n        }\n        \n        // First thread writes block result\n        if (tid == 0) {\n            output[blockIdx.x] = value;\n        }\n    }\n}",
+    "kernel_name": "sumReduction",
+    "sizes": {
+      "1024": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 18.2528,
+        "sum_value": 1024,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.246656,
+        "sum_value": 1000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 5.53539,
+        "sum_value": 1000000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      }
+    }
+  },
+  {
+    "model": "claude-3-5-haiku-latest",
+    "seed": 2,
+    "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Combine shuffle-based and shared memory reduction\n    // 2. Use warp-level shuffle instructions for initial reduction\n    // 3. Minimize global memory accesses and synchronization\n    // 4. Handle non-power-of-2 sizes with predicated load\n    // 5. Reduce bank conflicts through sequential addressing\n    // 6. Leverage instruction-level parallelism with unrolled reduction\n    \n    // Declare shared memory for final block-level reduction\n    extern __shared__ int sharedData[];\n    \n    // Global thread indices\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;\n    \n    // Predicated load with boundary check\n    int value = (globalIdx < size) ? input[globalIdx] : 0;\n    \n    // Warp-level reduction using shuffle instructions\n    // Unrolled for better performance\n    #pragma unroll\n    for (int offset = warpSize/2; offset > 0; offset /= 2) {\n        value += __shfl_down_sync(0xffffffff, value, offset);\n    }\n    \n    // Store warp reduction result for first thread of each warp\n    if (tid % warpSize == 0) {\n        sharedData[tid / warpSize] = value;\n    }\n    \n    // Block-level synchronization\n    __syncthreads();\n    \n    // Final block reduction using shared memory\n    // First warp handles final reduction\n    if (tid < warpSize) {\n        // Load warp reduction results, handling potential empty warps\n        value = (tid < (blockDim.x + warpSize - 1) / warpSize) ? \n                sharedData[tid] : 0;\n        \n        // Final warp-level shuffle reduction\n        #pragma unroll\n        for (int offset = warpSize/2; offset > 0; offset /= 2) {\n            value += __shfl_down_sync(0xffffffff, value, offset);\n        }\n        \n        // First thread writes block result\n        if (tid == 0) {\n            output[blockIdx.x] = value;\n        }\n    }\n}",
+    "kernel_name": "sumReduction",
+    "sizes": {
+      "1024": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.243648,
+        "sum_value": 1024,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.236384,
+        "sum_value": 1000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 5.52813,
+        "sum_value": 1000000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      }
+    }
+  },
+  {
+    "model": "claude-3-5-haiku-latest",
+    "seed": 3,
+    "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Hybrid reduction approach combining warp shuffle and shared memory\n    // 2. Maximize parallel reduction efficiency\n    // 3. Minimize global memory accesses and synchronization overhead\n    // 4. Handle non-power-of-2 sizes with predicated loading\n    // 5. Reduce bank conflicts through careful shared memory layout\n    // 6. Leverage instruction-level parallelism with aggressive unrolling\n    \n    // Declare shared memory with sequential addressing to reduce bank conflicts\n    extern __shared__ int sharedData[];\n    \n    // Thread and index calculations\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x * 2 + threadIdx.x;\n    \n    // Cooperative loading with boundary checks and sequential memory access\n    int value = 0;\n    if (globalIdx < size) {\n        value = input[globalIdx];\n        // Load two elements per thread to increase computational efficiency\n        if (globalIdx + blockDim.x < size) {\n            value += input[globalIdx + blockDim.x];\n        }\n    }\n    \n    // Initial warp-level reduction using shuffle instructions\n    // Unrolled for maximum performance\n    #pragma unroll\n    for (int offset = warpSize/2; offset > 0; offset /= 2) {\n        value += __shfl_down_sync(0xffffffff, value, offset);\n    }\n    \n    // Store warp reduction results in shared memory\n    if (tid % warpSize == 0) {\n        sharedData[tid / warpSize] = value;\n    }\n    \n    // Block-level synchronization\n    __syncthreads();\n    \n    // Final block reduction using first warp\n    if (tid < warpSize) {\n        // Load warp reduction results, handling potential empty warps\n        value = (tid < (blockDim.x * 2 + warpSize - 1) / warpSize) ? \n                sharedData[tid] : 0;\n        \n        // Final warp-level shuffle reduction with aggressive unrolling\n        #pragma unroll\n        for (int offset = warpSize/2; offset > 0; offset /= 2) {\n            value += __shfl_down_sync(0xffffffff, value, offset);\n        }\n        \n        // First thread writes block result\n        if (tid == 0) {\n            output[blockIdx.x] = value;\n        }\n    }\n}",
+    "kernel_name": "sumReduction",
+    "sizes": {
+      "1024": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 18.1371,
+        "sum_value": 1024,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.231328,
+        "sum_value": 1000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 7.02672,
+        "sum_value": 1000000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      }
+    }
+  },
+  {
+    "model": "claude-3-5-haiku-latest",
+    "seed": 4,
+    "kernel_code": "__global__ void sumReduction(int *input, int *output, int size) {\n    // Optimization Strategy:\n    // 1. Maximize parallel reduction efficiency through hybrid approach\n    // 2. Use cooperative loading to reduce global memory accesses\n    // 3. Leverage warp shuffle instructions for low-overhead reductions\n    // 4. Minimize synchronization and branch divergence\n    // 5. Handle non-power-of-2 sizes with predicated loading\n    // 6. Use sequential shared memory addressing to reduce bank conflicts\n    \n    // Declare shared memory with careful layout to minimize bank conflicts\n    extern __shared__ int sharedData[];\n    \n    // Thread and global index calculations\n    int tid = threadIdx.x;\n    int globalIdx = blockIdx.x * blockDim.x * 2 + threadIdx.x;\n    \n    // Cooperative loading with boundary checks and two-element per thread load\n    int localSum = 0;\n    \n    // First cooperative load with boundary check\n    if (globalIdx < size) {\n        localSum = input[globalIdx];\n    }\n    \n    // Second cooperative load, avoiding redundant size check\n    if (globalIdx + blockDim.x < size) {\n        localSum += input[globalIdx + blockDim.x];\n    }\n    \n    // Warp-level reduction using shuffle instructions\n    // Aggressive unrolling for instruction-level parallelism\n    #pragma unroll\n    for (int offset = warpSize/2; offset > 0; offset /= 2) {\n        localSum += __shfl_down_sync(0xffffffff, localSum, offset);\n    }\n    \n    // Store warp reduction results in shared memory\n    // Use sequential addressing to minimize bank conflicts\n    if (tid % warpSize == 0) {\n        sharedData[tid / warpSize] = localSum;\n    }\n    \n    // Block-level synchronization\n    __syncthreads();\n    \n    // Final block reduction using first warp\n    if (tid < warpSize) {\n        // Load warp reduction results, handling potential empty warps\n        localSum = (tid < (blockDim.x * 2 + warpSize - 1) / warpSize) ? \n                   sharedData[tid] : 0;\n        \n        // Final warp-level shuffle reduction\n        #pragma unroll\n        for (int offset = warpSize/2; offset > 0; offset /= 2) {\n            localSum += __shfl_down_sync(0xffffffff, localSum, offset);\n        }\n        \n        // First thread writes block result\n        if (tid == 0) {\n            output[blockIdx.x] = localSum;\n        }\n    }\n}",
+    "kernel_name": "sumReduction",
+    "sizes": {
+      "1024": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 18.8805,
+        "sum_value": 1024,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 0.252512,
+        "sum_value": 1000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      },
+      "1000000000": {
+        "compilation_success": true,
+        "run_success": true,
+        "execution_time_ms": 7.03939,
+        "sum_value": 1000000000,
+        "is_correct": true,
+        "verification": "PASSED"
+      }
+    }
+  }
+]

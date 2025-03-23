@@ -1,0 +1,63 @@
+/*
+ * Optimization strategy:
+ * 1. Uses 16 elements per thread during load to significantly reduce memory transactions
+ *    and total thread count (better for very large arrays)
+ * 2. Implements two-stage reduction: first parallel within warps using shuffle,
+ *    then across warps using shared memory
+ * 3. Completely eliminates shared memory bank conflicts using sequential addressing
+ * 4. Minimizes divergent execution by removing most conditional statements
+ * 5. Uses grid-stride loop with unrolled inner loop for handling large arrays
+ * 6. Employs full warp-level primitives to eliminate synchronization in final stages
+ * 7. Reduces register pressure by reusing variables where possible
+ * 8. Maintains coalesced memory access patterns during initial loading
+ */
+__global__ void sumReduction(int *input, int *output, int size) {
+    extern __shared__ int sdata[];
+    
+    const unsigned int tid = threadIdx.x;
+    const unsigned int wid = tid >> 5;  // Warp ID
+    const unsigned int lane = tid & 31;  // Lane within warp
+    const unsigned int gridSize = blockDim.x * gridDim.x * 16;
+    unsigned int idx = blockIdx.x * (blockDim.x * 16) + tid;
+    
+    // Thread-local sum
+    int sum = 0;
+    
+    // Grid-stride loop, each thread handles 16 elements
+    while (idx < size) {
+        #pragma unroll
+        for (int i = 0; i < 16; i++) {
+            unsigned int curr_idx = idx + i * blockDim.x;
+            if (curr_idx < size) {
+                sum += input[curr_idx];
+            }
+        }
+        idx += gridSize;
+    }
+    
+    // First reduction using warp shuffle
+    #pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        sum += __shfl_down_sync(0xffffffff, sum, offset);
+    }
+    
+    // Write warp results to shared memory
+    if (lane == 0) {
+        sdata[wid] = sum;
+    }
+    __syncthreads();
+    
+    // Final reduction across warps
+    if (tid < (blockDim.x >> 5)) {  // Only first warp
+        sum = (tid < (blockDim.x >> 5)) ? sdata[tid] : 0;
+        
+        #pragma unroll
+        for (int offset = (blockDim.x >> 6); offset > 0; offset >>= 1) {
+            sum += __shfl_down_sync(0xffffffff, sum, offset);
+        }
+        
+        if (lane == 0) {
+            output[blockIdx.x] = sum;
+        }
+    }
+}

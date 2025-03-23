@@ -1,0 +1,59 @@
+```cuda
+__global__ void sumReduction(int *input, int *output, int size) {
+    /*
+    Optimization Strategy:
+    1. **Grid-Stride Loop**: Each thread processes multiple elements by looping over the input array with a stride of grid size. This ensures efficient handling of very large arrays (up to 1B elements) without launching excessive blocks.
+    2. **Shared Memory Utilization**: Partial sums are stored in shared memory to minimize global memory accesses and leverage fast on-chip memory.
+    3. **Loop Unrolling in Reduction**: The reduction within shared memory is unrolled to reduce loop overhead and increase instruction-level parallelism.
+    4. **Warp-Level Primitives**: For the final steps of the reduction, `__shfl_down_sync` is used to perform warp-level reductions without requiring synchronization, thus minimizing synchronization overhead.
+    5. **Avoiding Bank Conflicts**: Access patterns to shared memory are designed to be coalesced and bank-conflict-free, maximizing memory throughput.
+    6. **Early Exit for Small Sizes**: Boundary conditions are handled to ensure that threads do not access out-of-bounds memory, maintaining correctness across all input sizes.
+    
+    These optimizations collectively enhance performance by maximizing memory bandwidth usage, reducing synchronization costs, and leveraging warp-level parallelism, making the kernel highly efficient for large-scale reductions.
+    */
+
+    extern __shared__ int sdata[];
+
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int stride = blockDim.x * gridDim.x;
+
+    // Initialize the partial sum for this thread
+    int sum = 0;
+
+    // Grid-stride loop to accumulate partial sums
+    while (idx < size) {
+        sum += input[idx];
+        idx += stride;
+    }
+
+    // Store the partial sum in shared memory
+    sdata[tid] = sum;
+    __syncthreads();
+
+    // Perform tree-based reduction in shared memory
+    // Unroll the reduction loop for better performance
+    for (unsigned int s = blockDim.x / 2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Use warp-level primitives for the final warp
+    if (tid < 32) {
+        // Reduce within the warp without synchronization
+        sdata[tid] += sdata[tid + 32];
+        sdata[tid] += sdata[tid + 16];
+        sdata[tid] += sdata[tid + 8];
+        sdata[tid] += sdata[tid + 4];
+        sdata[tid] += sdata[tid + 2];
+        sdata[tid] += sdata[tid + 1];
+    }
+
+    // Write the block's result to the output array
+    if (tid == 0) {
+        output[blockIdx.x] = sdata[0];
+    }
+}
+```

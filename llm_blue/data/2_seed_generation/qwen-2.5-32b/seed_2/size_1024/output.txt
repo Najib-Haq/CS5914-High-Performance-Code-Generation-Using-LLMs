@@ -1,0 +1,4 @@
+Running CUDA Reduction for size: 1024
+Sum: 512
+Kernel Execution Time: 15.999 ms
+Result verification: FAILED

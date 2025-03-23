@@ -1,0 +1,40 @@
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Optimization Strategy:
+    // This strategy uses warp-striped memory access to minimize bank conflicts. It also uses the __shfl_down_sync function for warp-level reductions, which reduces the overhead of __syncthreads calls, allowing for more efficient reduction within threads. 
+    // Early exit strategies are implemented to avoid unnecessary computations for threads that finish early in the reduction process, minimizing redundant work and divergence. 
+    // Additionally, it uses shared memory efficiently to store intermediate results and provides a balanced combination of warp-level and block-level reduction phases to handle a variety of input sizes effectively.
+    // This should improve performance, especially for large input sizes by leveraging the execution model of modern GPUs better.
+
+    extern __shared__ int sharedMem[];
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Load data into shared memory with warp-striped access to avoid bank conflicts
+    int data = (idx < size) ? input[idx] : 0;
+    int warpSize = 32;
+    int offset = 0;
+
+    sharedMem[tid] = data;
+
+    // Perform warp-level reduction
+    for (offset = warpSize / 2; offset > 0; offset >>= 1) {
+        sharedMem[tid] += __shfl_down_sync(0xFFFFFFFF, sharedMem[tid], offset);
+    }
+
+    __syncthreads();
+
+    // Continue with block-level reduction using first warp of threads
+    if (tid < warpSize) {
+        for (offset = warpSize; offset < blockDim.x; offset <<= 1) {
+            if (tid < offset) {
+                sharedMem[tid] += sharedMem[tid + offset];
+            }
+            __syncthreads();
+        }
+    }
+
+    // Write the result for the block to the output array
+    if (tid == 0) {
+        output[blockIdx.x] = sharedMem[0];
+    }
+}

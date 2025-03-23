@@ -1,0 +1,55 @@
+```cpp
+__global__ void sumReduction(int *input, int *output, int size) {
+    // Strategy overview:
+    // 1. Use shared memory for fast block-level reduction
+    // 2. Employ sequential addressing to avoid bank conflicts
+    // 3. Use warp unrolling for the last warp to reduce sync overhead
+    // 4. Process multiple elements per thread at load time to handle large arrays efficiently
+    // 5. Combine elements while loading to reduce shared memory requirements
+    
+    extern __shared__ int sdata[];
+    
+    // Each thread loads and adds elements with stride equal to grid size
+    unsigned int tid = threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned int gridSize = blockDim.x * gridDim.x;
+    
+    // Initialize shared memory with zeros
+    sdata[tid] = 0;
+    
+    // Grid-stride loop for handling large arrays
+    // Each thread sums multiple elements first (sequential global memory access)
+    int sum = 0;
+    for (unsigned int i = globalIdx; i < size; i += gridSize) {
+        sum += input[i];
+    }
+    
+    // Load sum into shared memory
+    sdata[tid] = sum;
+    __syncthreads();
+    
+    // Perform reduction in shared memory
+    for (unsigned int s = blockDim.x / 2; s > 32; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+    
+    // Unroll last warp (warp-level reduction without __syncthreads)
+    if (tid < 32) {
+        volatile int *smem = sdata;
+        if (blockDim.x >= 64) smem[tid] += smem[tid + 32];
+        if (blockDim.x >= 32) smem[tid] += smem[tid + 16];
+        if (blockDim.x >= 16) smem[tid] += smem[tid + 8];
+        if (blockDim.x >= 8) smem[tid] += smem[tid + 4];
+        if (blockDim.x >= 4) smem[tid] += smem[tid + 2];
+        if (blockDim.x >= 2) smem[tid] += smem[tid + 1];
+    }
+    
+    // Write result for this block to global memory
+    if (tid == 0) {
+        output[blockIdx.x] = sdata[0];
+    }
+}
+```
