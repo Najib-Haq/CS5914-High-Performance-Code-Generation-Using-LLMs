@@ -4,7 +4,7 @@
 INPUT_SIZES=(1024 1000000 1000000000 2000000000)
 
 # CUDA source file and output binary name
-CUDA_FILE_NAME="parallel_reduction4"
+CUDA_FILE_NAME="$1"
 CUDA_FILE="${CUDA_FILE_NAME}.cu"
 OUTPUT_BINARY="para.out"
 
