@@ -1,0 +1,5 @@
+Input Size,cudaEventRecord,Duration,DRAM mem,L1 mem,Warp exec %,Warp avg threads,Mem thrpt,DRAM thrpt,L1 thrpt,L2 thrpt,SM Throughput,Occupancy,Branch eff
+1024,36.0305,7.74 usecond,7.81 Kbyte,49.12 Kbyte,84.85,27.15,0.23,0.03,16.08,0.23,0.29,49.15,77.87
+1000000,26.7265,41.41 usecond,4.00 Mbyte,47.97 Mbyte,84.85,27.15,20.00,4.74,15.87,23.70,51.28,91.97,77.87
+1000000000,56.8095,34.12 msecond,4.00 Gbyte,47.97 Gbyte,84.85,27.15,24.01,11.48,16.64,28.59,61.69,95.96,77.87
+2000000000,91.892,68.23 msecond,8.00 Gbyte,95.94 Gbyte,84.85,27.15,24.01,11.50,16.64,28.57,61.70,95.97,77.87
