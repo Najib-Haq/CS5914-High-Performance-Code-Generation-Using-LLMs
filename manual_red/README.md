@@ -28,7 +28,7 @@ Logic: Final stages of the reduction (when only a warp or less of threads remain
 File: `parallel_reduction3b.cu` <br> 
 Logic: Intra-warp communication can be done more efficiently using warp shuffle instructions rather than shared memory. So changed the last warp method to utilize shuffle instructions.
 
-### Manual 4: Fully Unrolled Reduction Kernel 
+### Manual 4: Serial Addressing + shared memory + coarse initial load + Fully Unrolled Reduction Kernel + shuffle instructions
 File: `parallel_reduction4.cu` <br> 
 Logic: Using C++ templates or launch-time constants to fully unroll the entire reduction for a given block size. The idea is to eliminate all loop overhead and make every memory access pattern a compile-time decision, which allows the compiler to optimize and schedule instructions most effectively.
 
