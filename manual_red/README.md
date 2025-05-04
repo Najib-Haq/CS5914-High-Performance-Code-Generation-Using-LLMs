@@ -3,6 +3,23 @@ Tensor Reduction in GPU (manual optimization)
 
 By: Najibul Haque Sarker
 
+# Requirements
+
+Before running the code:
+- ensure you have CUDA installed and can run `.cu` files. 
+- ensure you have `ncu` (Nsight Compute CLI) installed - this is used to get profiling results.
+
+
+# Run Code
+
+Provided you have a file named `file.cu` with relevant cuda code, you can run the code and the appropriate profiling tools by providing the file name as command line argument to the bash file `run.sh`:
+```
+chmod +x run.sh
+./run.sh file
+```
+Furthermore, the `extract_metrics` folder contains code to automatically take the above generated profiling data and output structured .csv files containing the necessary information.
+
+
 # Reduction Strategies
 ### Manual 1: Naive Parallel Implementation
 File: `parallel_reduction1.cu` <br> 
@@ -31,16 +48,6 @@ Logic: Intra-warp communication can be done more efficiently using warp shuffle 
 ### Manual 4: Fully Unrolled Reduction Kernel + shared memory + coarse initial load + shuffle instructions
 File: `parallel_reduction4.cu` <br> 
 Logic: Using C++ templates or launch-time constants to fully unroll the entire reduction for a given block size. The idea is to eliminate all loop overhead and make every memory access pattern a compile-time decision, which allows the compiler to optimize and schedule instructions most effectively.
-
-# Run Code
-
-Provided you have a file named `file.cu` with relevant cuda code, you can run the code and the appropriate profiling tools by providing the file name as command line argument to the bash file `run.sh`:
-```
-chmod +x run.sh
-./run.sh file
-```
-
-Furthermore, the `extract_metrics` folder contains code to automatically take the above generated profiling data and output structured .csv files containing the necessary information.
 
 
 # Manual Strategies Evaluation Benchmark
