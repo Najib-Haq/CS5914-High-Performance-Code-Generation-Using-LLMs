@@ -1,21 +1,18 @@
 Running CUDA Reduction for size: 1024
-==PROF== Connected to process 3578649 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
-==PROF== Profiling "fullyUnrolledReduceKernel" - 0: 0%....50%....100% - 1 pass
-Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
-After GPU Memory Allocation - GPU Memory Usage: 1408 MB / 81920 MB
-After Copying Data to GPU - GPU Memory Usage: 1408 MB / 81920 MB
-Fully Unrolled Reduction Kernel Execution Time: 1563.672485 ms
-Correct Final Sum: 1024
-After GPU Memory Deallocation - GPU Memory Usage: 1406 MB / 81920 MB
-==PROF== Disconnected from process 3578649
-[3578649] para.out@127.0.0.1
-  fullyUnrolledReduceKernel(int *, int *, long long) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+==PROF== Connected to process 3790836 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+Sum: 1024
+Kernel Execution Time: 1090.95 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3790836
+[3790836] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
     Section: Command line profiler metrics
     ----------------------------------------------------- ----------- ------------
     Metric Name                                           Metric Unit Metric Value
     ----------------------------------------------------- ----------- ------------
     smsp__thread_inst_executed_per_inst_executed.max_rate                       32
-    smsp__thread_inst_executed_per_inst_executed.pct                %        97.84
-    smsp__thread_inst_executed_per_inst_executed.ratio                       31.31
+    smsp__thread_inst_executed_per_inst_executed.pct                %        99.70
+    smsp__thread_inst_executed_per_inst_executed.ratio                       31.90
     ----------------------------------------------------- ----------- ------------
 

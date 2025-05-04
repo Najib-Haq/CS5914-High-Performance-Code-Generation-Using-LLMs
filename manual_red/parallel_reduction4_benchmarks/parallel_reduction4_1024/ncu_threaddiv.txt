@@ -1,29 +1,26 @@
 Running CUDA Reduction for size: 1024
-==PROF== Connected to process 3578561 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
-==PROF== Profiling "fullyUnrolledReduceKernel" - 0: 0%....50%....100% - 44 passes
-Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
-After GPU Memory Allocation - GPU Memory Usage: 1408 MB / 81920 MB
-After Copying Data to GPU - GPU Memory Usage: 1408 MB / 81920 MB
-Fully Unrolled Reduction Kernel Execution Time: 5164.257324 ms
-Correct Final Sum: 1024
-After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
-==PROF== Disconnected from process 3578561
-[3578561] para.out@127.0.0.1
-  fullyUnrolledReduceKernel(int *, int *, long long) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+==PROF== Connected to process 3789183 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 44 passes
+Sum: 1024
+Kernel Execution Time: 5725.29 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3789183
+[3789183] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (1, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
     Section: GPU Speed Of Light Throughput
     ----------------------- ------------- ------------
     Metric Name               Metric Unit Metric Value
     ----------------------- ------------- ------------
-    DRAM Frequency          cycle/nsecond         1.63
-    SM Frequency            cycle/nsecond         1.18
-    Elapsed Cycles                  cycle        4,628
-    Memory Throughput                   %         0.48
+    DRAM Frequency          cycle/nsecond         1.55
+    SM Frequency            cycle/nsecond         1.12
+    Elapsed Cycles                  cycle        4,700
+    Memory Throughput                   %         0.29
     DRAM Throughput                     %         0.05
-    Duration                      usecond         3.90
-    L1/TEX Cache Throughput             %        20.06
-    L2 Cache Throughput                 %         0.48
-    SM Active Cycles                cycle        25.66
-    Compute (SM) Throughput             %         0.11
+    Duration                      usecond         4.19
+    L1/TEX Cache Throughput             %        18.13
+    L2 Cache Throughput                 %         0.29
+    SM Active Cycles                cycle        27.68
+    Compute (SM) Throughput             %         0.10
     ----------------------- ------------- ------------
 
     OPT   This kernel grid is too small to fill the available resources on this device, resulting in only 0.0 full      
@@ -39,11 +36,11 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     -------------------- ----------- ------------
     Metric Name          Metric Unit Metric Value
     -------------------- ----------- ------------
-    Executed Ipc Active   inst/cycle         0.63
+    Executed Ipc Active   inst/cycle         0.54
     Executed Ipc Elapsed  inst/cycle         0.00
-    Issue Slots Busy               %        18.42
-    Issued Ipc Active     inst/cycle         0.74
-    SM Busy                        %        18.42
+    Issue Slots Busy               %        15.66
+    Issued Ipc Active     inst/cycle         0.63
+    SM Busy                        %        15.66
     -------------------- ----------- ------------
 
     WRN   All compute pipelines are under-utilized. Either this kernel is very small or it doesn't issue enough warps   
@@ -53,18 +50,18 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     --------------------------- ------------ ------------
     Metric Name                  Metric Unit Metric Value
     --------------------------- ------------ ------------
-    Memory Throughput           Gbyte/second         1.11
-    Mem Busy                               %         0.48
-    Max Bandwidth                          %         0.30
+    Memory Throughput           Gbyte/second         1.01
+    Mem Busy                               %         0.29
+    Max Bandwidth                          %         0.24
     L1/TEX Hit Rate                        %            0
     L2 Compression Success Rate            %            0
     L2 Compression Ratio                                0
-    L2 Hit Rate                            %       187.22
-    Mem Pipes Busy                         %         0.11
+    L2 Hit Rate                            %        89.37
+    Mem Pipes Busy                         %         0.10
     --------------------------- ------------ ------------
 
     Section: Memory Workload Analysis Tables
-    OPT   Estimated Speedup: 0.002137%                                                                                  
+    OPT   Estimated Speedup: 0.002244%                                                                                  
           The memory access pattern for stores from L1TEX to L2 is not optimal. The granularity of an L1TEX request to  
           L2 is a 128 byte cache line. That is 4 consecutive 32-byte sectors per L2 request. However, this kernel only  
           accesses an average of 1.0 sectors out of the possible 4 sectors per cache line. Check the Source Counters    
@@ -75,18 +72,18 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        22.53
-    Issued Warp Per Scheduler                        0.23
-    No Eligible                            %        77.47
-    Active Warps Per Scheduler          warp         7.33
-    Eligible Warps Per Scheduler        warp         0.61
+    One or More Eligible                   %        18.01
+    Issued Warp Per Scheduler                        0.18
+    No Eligible                            %        81.99
+    Active Warps Per Scheduler          warp         7.70
+    Eligible Warps Per Scheduler        warp         0.46
     ---------------------------- ----------- ------------
 
-    OPT   Estimated Speedup: 77.47%                                                                                     
+    OPT   Estimated Speedup: 81.99%                                                                                     
           Every scheduler is capable of issuing one instruction per cycle, but for this kernel each scheduler only      
-          issues an instruction every 4.4 cycles. This might leave hardware resources underutilized and may lead to     
+          issues an instruction every 5.6 cycles. This might leave hardware resources underutilized and may lead to     
           less optimal performance. Out of the maximum of 16 warps per scheduler, this kernel allocates an average of   
-          7.33 active warps per scheduler, but only an average of 0.61 warps were eligible per cycle. Eligible warps    
+          7.70 active warps per scheduler, but only an average of 0.46 warps were eligible per cycle. Eligible warps    
           are the subset of active warps that are ready to issue their next instruction. Every cycle with no eligible   
           warp results in no instruction being issued and the issue slot remains unused. To increase the number of      
           eligible warps, reduce the time the active warps are stalled by inspecting the top stall reasons on the Warp  
@@ -96,18 +93,33 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        32.51
-    Warp Cycles Per Executed Instruction           cycle        37.79
-    Avg. Active Threads Per Warp                                31.31
-    Avg. Not Predicated Off Threads Per Warp                    21.82
+    Warp Cycles Per Issued Instruction             cycle        42.79
+    Warp Cycles Per Executed Instruction           cycle        49.23
+    Avg. Active Threads Per Warp                                31.90
+    Avg. Not Predicated Off Threads Per Warp                    21.66
     ---------------------------------------- ----------- ------------
 
-    OPT   Estimated Speedup: 31.81%                                                                                     
+    OPT   Estimated Speedup: 37.57%                                                                                     
+          On average, each warp of this kernel spends 16.1 cycles being stalled waiting for an immediate constant cache 
+          (IMC) miss. A read from constant memory costs one memory read from device memory only on a cache miss;        
+          otherwise, it just costs one read from the constant cache. Immediate constants are encoded into the SASS      
+          instruction as 'c[bank][offset]'. Accesses to different addresses by threads within a warp are serialized,    
+          thus the cost scales linearly with the number of unique addresses read by all threads within a warp. As       
+          such, the constant cache is best when threads in the same warp access only a few distinct locations. If all   
+          threads of a warp access the same location, then constant memory can be as fast as a register access. This    
+          stall type represents about 37.6% of the total average of 42.8 cycles between issuing two instructions.       
+    ----- --------------------------------------------------------------------------------------------------------------
+    INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
+          sampling data. The Kernel Profiling Guide                                                                     
+          (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
+          on each stall reason.                                                                                         
+    ----- --------------------------------------------------------------------------------------------------------------
+    OPT   Estimated Speedup: 32.32%                                                                                     
           Instructions are executed in warps, which are groups of 32 threads. Optimal instruction throughput is         
           achieved if all 32 threads of a warp execute the same instruction. The chosen launch configuration, early     
           thread completion, and divergent flow control can significantly lower the number of active threads in a warp  
-          per cycle. This kernel achieves an average of 31.3 threads being active per cycle. This is further reduced    
-          to 21.8 threads per warp due to predication. The compiler may use predication to avoid an actual branch.      
+          per cycle. This kernel achieves an average of 31.9 threads being active per cycle. This is further reduced    
+          to 21.7 threads per warp due to predication. The compiler may use predication to avoid an actual branch.      
           Instead, all instructions are scheduled, but a per-thread condition code or predicate controls which threads  
           execute the instructions. Try to avoid different execution paths within a warp when possible.                 
 
@@ -115,10 +127,10 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Avg. Executed Instructions Per Scheduler        inst         4.07
-    Executed Instructions                           inst        1,757
-    Avg. Issued Instructions Per Scheduler          inst         4.73
-    Issued Instructions                             inst        2,042
+    Avg. Executed Instructions Per Scheduler        inst         3.77
+    Executed Instructions                           inst        1,627
+    Avg. Issued Instructions Per Scheduler          inst         4.33
+    Issued Instructions                             inst        1,872
     ---------------------------------------- ----------- ------------
 
     Section: Launch Statistics
@@ -131,8 +143,8 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     Registers Per Thread             register/thread              16
     Shared Memory Configuration Size           Kbyte           16.38
     Driver Shared Memory Per Block       Kbyte/block            1.02
-    Dynamic Shared Memory Per Block       byte/block               0
-    Static Shared Memory Per Block       Kbyte/block            4.10
+    Dynamic Shared Memory Per Block      Kbyte/block            4.10
+    Static Shared Memory Per Block        byte/block               0
     Threads                                   thread           1,024
     Waves Per SM                                                0.00
     -------------------------------- --------------- ---------------
@@ -155,13 +167,13 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     Block Limit Warps                     block            2
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        41.84
-    Achieved Active Warps Per SM           warp        26.78
+    Achieved Occupancy                        %        45.23
+    Achieved Active Warps Per SM           warp        28.95
     ------------------------------- ----------- ------------
 
-    OPT   Estimated Speedup: 58.16%                                                                                     
+    OPT   Estimated Speedup: 54.77%                                                                                     
           This kernel's theoretical occupancy is not impacted by any block limit. The difference between calculated     
-          theoretical (100.0%) and measured achieved occupancy (41.8%) can be the result of warp scheduling overheads   
+          theoretical (100.0%) and measured achieved occupancy (45.2%) can be the result of warp scheduling overheads   
           or workload imbalances during the kernel execution. Load imbalances can occur between warps within a block    
           as well as across blocks of the same kernel. See the CUDA Best Practices Guide                                
           (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on           
@@ -172,8 +184,8 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     Metric Name               Metric Unit Metric Value
     ------------------------- ----------- ------------
     Branch Instructions Ratio           %         0.06
-    Branch Instructions              inst          108
-    Branch Efficiency                   %        97.44
-    Avg. Divergent Branches                       0.00
+    Branch Instructions              inst           99
+    Branch Efficiency                   %          100
+    Avg. Divergent Branches                          0
     ------------------------- ----------- ------------
 

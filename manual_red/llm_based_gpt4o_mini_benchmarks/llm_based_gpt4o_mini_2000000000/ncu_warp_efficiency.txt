@@ -1,0 +1,18 @@
+Running CUDA Reduction for size: 2000000000
+==PROF== Connected to process 3821597 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+Sum: 2000000000
+Kernel Execution Time: 946.06 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3821597
+[3821597] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (7812500, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    ----------------------------------------------------- ----------- ------------
+    Metric Name                                           Metric Unit Metric Value
+    ----------------------------------------------------- ----------- ------------
+    smsp__thread_inst_executed_per_inst_executed.max_rate                       32
+    smsp__thread_inst_executed_per_inst_executed.pct                %        99.40
+    smsp__thread_inst_executed_per_inst_executed.ratio                       31.81
+    ----------------------------------------------------- ----------- ------------
+

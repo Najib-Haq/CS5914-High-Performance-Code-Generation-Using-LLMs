@@ -1,15 +1,12 @@
 Running CUDA Reduction for size: 2000000000
-==PROF== Connected to process 3588105 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
-==PROF== Profiling "fullyUnrolledReduceKernel" - 0: 0%....50%....100% - 1 pass
-Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
-After GPU Memory Allocation - GPU Memory Usage: 9040 MB / 81920 MB
-After Copying Data to GPU - GPU Memory Usage: 9040 MB / 81920 MB
-Fully Unrolled Reduction Kernel Execution Time: 1356.918945 ms
-Correct Final Sum: 2000000000
-After GPU Memory Deallocation - GPU Memory Usage: 1406 MB / 81920 MB
-==PROF== Disconnected from process 3588105
-[3588105] para.out@127.0.0.1
-  fullyUnrolledReduceKernel(int *, int *, long long) (976563, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+==PROF== Connected to process 3797903 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+Sum: 2000000000
+Kernel Execution Time: 1281.89 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3797903
+[3797903] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (976563, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
     Section: Command line profiler metrics
     --------------------------------------------------- ----------- ------------
     Metric Name                                         Metric Unit Metric Value

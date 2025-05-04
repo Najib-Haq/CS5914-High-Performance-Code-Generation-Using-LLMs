@@ -1,0 +1,27 @@
+Running CUDA Reduction for size: 2000000000
+==PROF== Connected to process 3821704 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 1 pass
+Sum: 2000000000
+Kernel Execution Time: 1379.98 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3821704
+[3821704] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (7812500, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+    Section: Command line profiler metrics
+    --------------------------------------------------- ----------- ------------
+    Metric Name                                         Metric Unit Metric Value
+    --------------------------------------------------- ----------- ------------
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fadd_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_ffma_pred_on.sum        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.avg        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.max        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.min        inst            0
+    smsp__sass_thread_inst_executed_op_fmul_pred_on.sum        inst            0
+    --------------------------------------------------- ----------- ------------
+

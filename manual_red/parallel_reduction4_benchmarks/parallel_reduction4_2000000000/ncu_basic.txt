@@ -1,29 +1,26 @@
 Running CUDA Reduction for size: 2000000000
-==PROF== Connected to process 3583481 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
-==PROF== Profiling "fullyUnrolledReduceKernel" - 0: 0%....50%....100% - 10 passes
-Before GPU Memory Allocation - GPU Memory Usage: 869 MB / 81920 MB
-After GPU Memory Allocation - GPU Memory Usage: 9040 MB / 81920 MB
-After Copying Data to GPU - GPU Memory Usage: 9040 MB / 81920 MB
-Fully Unrolled Reduction Kernel Execution Time: 1828.678589 ms
-Correct Final Sum: 2000000000
-After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
-==PROF== Disconnected from process 3583481
-[3583481] para.out@127.0.0.1
-  fullyUnrolledReduceKernel(int *, int *, long long) (976563, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
+==PROF== Connected to process 3795490 (/home/najibulhaque/courses/CS5914-High-Performance-Code-Generation-Using-LLMs/manual_red/para.out)
+==PROF== Profiling "sumReduction(int *, int *, int)" - 0: 0%....50%....100% - 10 passes
+Sum: 2000000000
+Kernel Execution Time: 2340.94 ms
+Result verification: PASSED
+==PROF== Disconnected from process 3795490
+[3795490] para.out@127.0.0.1
+  sumReduction(int *, int *, int) (976563, 1, 1)x(1024, 1, 1), Context 1, Stream 7, Device 0, CC 8.0
     Section: GPU Speed Of Light Throughput
     ----------------------- ------------- -------------
     Metric Name               Metric Unit  Metric Value
     ----------------------- ------------- -------------
     DRAM Frequency          cycle/nsecond          1.59
     SM Frequency            cycle/nsecond          1.15
-    Elapsed Cycles                  cycle    11,100,301
-    Memory Throughput                   %         46.21
-    DRAM Throughput                     %         40.84
-    Duration                      msecond          9.61
-    L1/TEX Cache Throughput             %         46.23
-    L2 Cache Throughput                 %         42.92
-    SM Active Cycles                cycle 11,083,184.90
-    Compute (SM) Throughput             %         44.04
+    Elapsed Cycles                  cycle    10,188,301
+    Memory Throughput                   %         49.21
+    DRAM Throughput                     %         44.50
+    Duration                      msecond          8.82
+    L1/TEX Cache Throughput             %         49.23
+    L2 Cache Throughput                 %         46.48
+    SM Active Cycles                cycle 10,179,771.31
+    Compute (SM) Throughput             %         46.80
     ----------------------- ------------- -------------
 
     OPT   This kernel exhibits low compute throughput and memory bandwidth utilization relative to the peak performance 
@@ -40,8 +37,8 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     Registers Per Thread             register/thread              16
     Shared Memory Configuration Size           Kbyte           16.38
     Driver Shared Memory Per Block       Kbyte/block            1.02
-    Dynamic Shared Memory Per Block       byte/block               0
-    Static Shared Memory Per Block       Kbyte/block            4.10
+    Dynamic Shared Memory Per Block      Kbyte/block            4.10
+    Static Shared Memory Per Block        byte/block               0
     Threads                                   thread   1,000,000,512
     Waves Per SM                                            4,521.12
     -------------------------------- --------------- ---------------
@@ -56,13 +53,13 @@ After GPU Memory Deallocation - GPU Memory Usage: 1544 MB / 81920 MB
     Block Limit Warps                     block            2
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        72.04
-    Achieved Active Warps Per SM           warp        46.11
+    Achieved Occupancy                        %        76.24
+    Achieved Active Warps Per SM           warp        48.79
     ------------------------------- ----------- ------------
 
-    OPT   Estimated Speedup: 27.96%                                                                                     
+    OPT   Estimated Speedup: 23.76%                                                                                     
           This kernel's theoretical occupancy is not impacted by any block limit. The difference between calculated     
-          theoretical (100.0%) and measured achieved occupancy (72.0%) can be the result of warp scheduling overheads   
+          theoretical (100.0%) and measured achieved occupancy (76.2%) can be the result of warp scheduling overheads   
           or workload imbalances during the kernel execution. Load imbalances can occur between warps within a block    
           as well as across blocks of the same kernel. See the CUDA Best Practices Guide                                
           (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on           
