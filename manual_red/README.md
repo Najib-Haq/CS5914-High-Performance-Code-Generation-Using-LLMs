@@ -53,6 +53,8 @@ Logic: Using C++ templates or launch-time constants to fully unroll the entire r
 # Manual Strategies Evaluation Benchmark
 ![Benchmark](../data/figures/manual_optimization.png)
 
+Comparison between Duration vs Grouped Manual Strategies:
+<img src="../data/figures/manual_comparison.png" alt="Comparison" width="60%"/>
 
 # References
 - https://christianjmills.com/posts/cuda-mode-notes/lecture-009/
