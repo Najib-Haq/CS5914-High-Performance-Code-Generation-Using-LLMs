@@ -2,29 +2,34 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+/* 
+Adding 
+- sequential addressing
+- local shared memory to the kernel
+*/
+
+
 __global__ void sumReduction(int* input, int* output, int n) {
-    const unsigned int B    = blockDim.x;  // Number of threads per block
-    const unsigned int base = blockIdx.x * B; // Base index for this block
-    const unsigned int tid  = threadIdx.x; // Thread index within the block
-    const unsigned int idx  = base + tid; // Global index for this thread
+    extern __shared__ int sdata[];        // size == blockDim.x
 
-    // If this thread’s element is past the end, do nothing
-    if (idx >= (unsigned)n) return;
+    const unsigned int B   = blockDim.x;
+    const unsigned int tid = threadIdx.x;
+    const unsigned int idx = blockIdx.x * B + tid;
 
-    for (unsigned int stride = 1; stride < B; stride <<= 1) {
-        // only threads whose tid is multiple of 2*stride participate
-        if ((tid % (2 * stride)) == 0) {
-            unsigned int other = idx + stride;
-            if (other < (unsigned)n) {
-                input[idx] += input[other];
-            }
+    // Load one element (or 0 if out of bounds)
+    sdata[tid] = (idx < (unsigned)n) ? input[idx] : 0;
+    __syncthreads();
+
+    // Sequential addressing
+    for (unsigned int stride = B / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sdata[tid] += sdata[tid + stride];
         }
         __syncthreads();
     }
 
-    // thread 0 of each block writes out the block’s sum
     if (tid == 0) {
-        output[blockIdx.x] = input[base];
+        output[blockIdx.x] = sdata[0];
     }
 }
 
@@ -87,12 +92,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "Wrong Usage: " << argv[0] << " <size>\n";
         return 1;
     }
-    const int size = atoll(argv[1]); 
+    const int size = atoll(argv[1]); //1342177280; //1342177280; // 1.34 billion elements (~5GB)
     if (size <= 0) {
         std::cerr << "Error: Invalid input size.\n";
         return 1;
     }
-
+    
     // Print size for verification
     std::cout << "Running CUDA Reduction for size: " << size << std::endl;
     

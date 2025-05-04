@@ -2,29 +2,54 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+/* 
+Adding 
+- local shared memory to the kernel
+- coarsened load to the kernel (each thread sums two elements during loading in shared memory)
+- unrolling last warp
+*/
+
+// Warp‐Level Reduction using Unrolled Shuffle Instructions
+__device__ void warpReduceSumUnrolled(volatile int* sdata, int tid) {
+    sdata[tid] += sdata[tid + 32];
+    sdata[tid] += sdata[tid + 16];
+    sdata[tid] += sdata[tid + 8];   
+    sdata[tid] += sdata[tid + 4];   
+    sdata[tid] += sdata[tid + 2];   
+    sdata[tid] += sdata[tid + 1];   
+}
+
 __global__ void sumReduction(int* input, int* output, int n) {
-    const unsigned int B    = blockDim.x;  // Number of threads per block
-    const unsigned int base = blockIdx.x * B; // Base index for this block
-    const unsigned int tid  = threadIdx.x; // Thread index within the block
-    const unsigned int idx  = base + tid; // Global index for this thread
+    extern __shared__ int sdata[];            // shared mem, size = blockDim.x
 
-    // If this thread’s element is past the end, do nothing
-    if (idx >= (unsigned)n) return;
+    const unsigned int B    = blockDim.x;
+    const unsigned int tid  = threadIdx.x;
+    const unsigned int base = blockIdx.x * (2 * B);
 
-    for (unsigned int stride = 1; stride < B; stride <<= 1) {
-        // only threads whose tid is multiple of 2*stride participate
-        if ((tid % (2 * stride)) == 0) {
-            unsigned int other = idx + stride;
-            if (other < (unsigned)n) {
-                input[idx] += input[other];
-            }
+    // each thread sums two input elements into sdata[tid]
+    unsigned int idx1 = base + tid;           // first element
+    unsigned int idx2 = base + tid + B;       // second element
+    int val = 0;
+    if (idx1 < (unsigned)n) val += input[idx1];
+    if (idx2 < (unsigned)n) val += input[idx2];
+    sdata[tid] = val;
+    __syncthreads();
+
+    // tree reduction down to 32 threads
+    for (unsigned int stride = B/2; stride > 32; stride >>= 1) {
+        if (tid < stride) {
+            sdata[tid] += sdata[tid + stride];
         }
         __syncthreads();
     }
 
-    // thread 0 of each block writes out the block’s sum
+    // Final warp‐level unrolled shuffle reduction
+    if (tid < 32) {
+        warpReduceSumUnrolled(sdata, tid);       // fully reduce within the warp
+    }
+
     if (tid == 0) {
-        output[blockIdx.x] = input[base];
+        output[blockIdx.x] = sdata[0];
     }
 }
 
@@ -37,7 +62,8 @@ int sumArray(int* h_input, int size) {
     
     // The size of d_temp is based on the number of blocks we'll launch
     int threadsPerBlock = 1024;
-    int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
+    int elemsPerBlock   = threadsPerBlock * 2;  // coarsened load - as each thread sums two elements during loading in shared memory
+    int blocksPerGrid   = (size + elemsPerBlock - 1) / elemsPerBlock;
     cudaMalloc((void**)&d_temp, blocksPerGrid * sizeof(int));
     
     // Copy input data to device
@@ -87,12 +113,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "Wrong Usage: " << argv[0] << " <size>\n";
         return 1;
     }
-    const int size = atoll(argv[1]); 
+    const int size = atoll(argv[1]); //1342177280; //1342177280; // 1.34 billion elements (~5GB)
     if (size <= 0) {
         std::cerr << "Error: Invalid input size.\n";
         return 1;
     }
-
+    
     // Print size for verification
     std::cout << "Running CUDA Reduction for size: " << size << std::endl;
     

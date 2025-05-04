@@ -2,6 +2,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
+/* 
+Adding sequential addressing
+*/
+
 __global__ void sumReduction(int* input, int* output, int n) {
     const unsigned int B    = blockDim.x;  // Number of threads per block
     const unsigned int base = blockIdx.x * B; // Base index for this block
@@ -11,12 +15,12 @@ __global__ void sumReduction(int* input, int* output, int n) {
     // If this thread’s element is past the end, do nothing
     if (idx >= (unsigned)n) return;
 
-    for (unsigned int stride = 1; stride < B; stride <<= 1) {
-        // only threads whose tid is multiple of 2*stride participate
-        if ((tid % (2 * stride)) == 0) {
-            unsigned int other = idx + stride;
-            if (other < (unsigned)n) {
-                input[idx] += input[other];
+    // Sequential addressing 
+    for (int stride = B/2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            unsigned int read_idx = base + tid + stride;
+            if (read_idx < (unsigned)n) {
+                input[base + tid] += input[read_idx];
             }
         }
         __syncthreads();
@@ -87,12 +91,12 @@ int main(int argc, char* argv[]) {
         std::cerr << "Wrong Usage: " << argv[0] << " <size>\n";
         return 1;
     }
-    const int size = atoll(argv[1]); 
+    const int size = atoll(argv[1]); //1342177280; //1342177280; // 1.34 billion elements (~5GB)
     if (size <= 0) {
         std::cerr << "Error: Invalid input size.\n";
         return 1;
     }
-
+    
     // Print size for verification
     std::cout << "Running CUDA Reduction for size: " << size << std::endl;
     

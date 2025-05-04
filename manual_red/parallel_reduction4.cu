@@ -1,11 +1,8 @@
 #include <iostream>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <nvml.h>  // NVIDIA Management Library
 
 #define THREADS_PER_BLOCK 1024
-
-// Unrolling the Final Warp Loop
 
 // Warp-Level Reduction Using Template Metaprogramming for Full Unrolling
 template <int Offset>
@@ -13,10 +10,10 @@ __inline__ __device__ void warpReduceSumUnrolled(int &sum) {
     sum += __shfl_down_sync(0xFFFFFFFF, sum, Offset);
 }
 
-
 // Fully Unrolled Block-Level Reduction Using Template Metaprogramming
 template <int BlockSize>
 __inline__ __device__ void blockReduceSum(int* shared_data, int tid) {
+    // these if‐constexprs get resolved at compile time into straight code
     if constexpr (BlockSize >= 1024) {
         if (tid < 512) shared_data[tid] += shared_data[tid + 512];
         __syncthreads();
@@ -33,8 +30,10 @@ __inline__ __device__ void blockReduceSum(int* shared_data, int tid) {
         if (tid < 64) shared_data[tid] += shared_data[tid + 64];
         __syncthreads();
     }
-    if (tid <= 32) {
-        warpReduceSumUnrolled<32>(shared_data[tid]);  // changed and added this
+    // final warp
+    if (tid < 32) {
+        // fully unroll the last 32→1 reduction in‑warp
+        warpReduceSumUnrolled<32>(shared_data[tid]);
         warpReduceSumUnrolled<16>(shared_data[tid]);
         warpReduceSumUnrolled<8>(shared_data[tid]);
         warpReduceSumUnrolled<4>(shared_data[tid]);
@@ -43,112 +42,117 @@ __inline__ __device__ void blockReduceSum(int* shared_data, int tid) {
     }
 }
 
-// Fully Unrolled CUDA Reduction Kernel
-__global__ void fullyUnrolledReduceKernel(int* input, int* output, long long int size) {
-    __shared__ int shared_data[THREADS_PER_BLOCK];
 
-    unsigned int tid = threadIdx.x;
-    unsigned long long i = blockIdx.x * (blockDim.x * 2) + tid;
+__global__ void sumReduction(int* input, int* output, int n) {
+    extern __shared__ int sdata[];  // shared mem, size = blockDim.x
 
-    // Load input safely and prevent skipping values
-    int sum = 0;
-    if (i < size) sum = input[i];
-    if (i + blockDim.x < size) sum += input[i + blockDim.x];
+    const unsigned int B    = blockDim.x;
+    const unsigned int tid  = threadIdx.x;
+    const unsigned int base = blockIdx.x * (2 * B);
 
-    shared_data[tid] = sum;
+    // each thread sums two input elements into sdata[tid]
+    unsigned int idx1 = base + tid;           // first element
+    unsigned int idx2 = base + tid + B;       // second element
+    int val = 0;
+    if (idx1 < (unsigned)n) val += input[idx1];
+    if (idx2 < (unsigned)n) val += input[idx2];
+    sdata[tid] = val;
     __syncthreads();
 
-    // Perform Fully Unrolled Block Reduction
-    blockReduceSum<THREADS_PER_BLOCK>(shared_data, tid);
+    // 2) Fully unrolled block reduction
+    blockReduceSum<THREADS_PER_BLOCK>(sdata, tid);
 
-    // Store only final block sum
     if (tid == 0) {
-        output[blockIdx.x] = shared_data[0];
+        output[blockIdx.x] = sdata[0];
     }
 }
 
-// Reduce Partial Sums on CPU
-int finalReduceOnCPU(int* d_output, int numBlocks) {
-    int* h_partial_sums = new int[numBlocks];
-    cudaMemcpy(h_partial_sums, d_output, numBlocks * sizeof(int), cudaMemcpyDeviceToHost);
 
-    int totalSum = 0;
-    for (int i = 0; i < numBlocks; i++) {
-        totalSum += h_partial_sums[i];
-    }
-
-    delete[] h_partial_sums;
-    return totalSum;
-}
-
-// GPU Memory Check Function
-void checkGpuMemoryUsage(const char* message) {
-    nvmlInit();
-    nvmlDevice_t device;
-    nvmlMemory_t memory;
-    nvmlDeviceGetHandleByIndex(0, &device);
-    nvmlDeviceGetMemoryInfo(device, &memory);
-    std::cout << message << " - GPU Memory Usage: " 
-              << (memory.used / (1024 * 1024)) << " MB / "
-              << (memory.total / (1024 * 1024)) << " MB\n";
-    nvmlShutdown();
-}
-
-// Host Function to Call Kernel
-void reduce(int* d_input, int* d_output, long long int size) {
-    int numBlocks = (size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2);
+// Host function to perform reduction
+int sumArray(int* h_input, int size) {
+    int *d_input, *d_temp;
     
-    float milliseconds = 0;
+    // Allocate device memory
+    cudaMalloc((void**)&d_input, size * sizeof(int));
+    
+    // The size of d_temp is based on the number of blocks we'll launch
+    int threadsPerBlock = THREADS_PER_BLOCK;
+    int elemsPerBlock   = threadsPerBlock * 2;  // coarsened load - as each thread sums two elements during loading in shared memory
+    int blocksPerGrid   = (size + elemsPerBlock - 1) / elemsPerBlock;
+    cudaMalloc((void**)&d_temp, blocksPerGrid * sizeof(int));
+    
+    // Copy input data to device
+    cudaMemcpy(d_input, h_input, size * sizeof(int), cudaMemcpyHostToDevice);
+    
+    // Create CUDA events for timing
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-
+    
+    // Launch kernel with the actual size parameter
     cudaEventRecord(start);
-    fullyUnrolledReduceKernel<<<numBlocks, THREADS_PER_BLOCK>>>(d_input, d_output, size);
-    cudaDeviceSynchronize();
+    sumReduction<<<blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int)>>>(d_input, d_temp, size);
     cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    
+    // Wait for kernel to finish
+    cudaDeviceSynchronize();
+    
+    // Calculate elapsed time
+    float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     
-    int finalSum = finalReduceOnCPU(d_output, numBlocks);
-    printf("Fully Unrolled Reduction Kernel Execution Time: %f ms\n", milliseconds);
-    printf("Correct Final Sum: %d\n", finalSum);
+    // Copy the block results back to host
+    int* h_temp = new int[blocksPerGrid];
+    cudaMemcpy(h_temp, d_temp, blocksPerGrid * sizeof(int), cudaMemcpyDeviceToHost);
+    
+    // Finalize the reduction on CPU (sum the block results)
+    int sum = 0;
+    for (int i = 0; i < blocksPerGrid; i++) {
+        sum += h_temp[i];
+    }
+    
+    // Print results
+    std::cout << "Sum: " << sum << std::endl;
+    std::cout << "Kernel Execution Time: " << milliseconds << " ms" << std::endl;
+    
+    // Clean up
+    cudaFree(d_input);
+    cudaFree(d_temp);
+    delete[] h_temp;
+    
+    return sum;
 }
 
-// Main Function
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Wrong Usage: " << argv[0] << " <size>\n";
         return 1;
     }
-    const long long int size = atoll(argv[1]); //1342177280; //1342177280; // 1.34 billion elements (~5GB)
+    const int size = atoll(argv[1]);
     if (size <= 0) {
         std::cerr << "Error: Invalid input size.\n";
         return 1;
     }
-    std::cout << "Running CUDA Reduction for size: " << size << std::endl;
-    const size_t bytes = size * sizeof(int);
     
+    // Print size for verification
+    std::cout << "Running CUDA Reduction for size: " << size << std::endl;
+    
+    // Allocate and initialize host array
     int* h_input = new int[size];
-    for (long long int i = 0; i < size; i++) h_input[i] = 1;
-
-    int *d_input, *d_output;
-    checkGpuMemoryUsage("Before GPU Memory Allocation");
-
-    cudaMalloc(&d_input, bytes);
-    cudaMalloc(&d_output, ((size + THREADS_PER_BLOCK * 2 - 1) / (THREADS_PER_BLOCK * 2)) * sizeof(int));  // Fix: Allocate full output array for all blocks
-
-    checkGpuMemoryUsage("After GPU Memory Allocation");
-
-    cudaMemcpy(d_input, h_input, bytes, cudaMemcpyHostToDevice);
-    checkGpuMemoryUsage("After Copying Data to GPU");
-
-    reduce(d_input, d_output, size);
-
-    cudaFree(d_input);
-    cudaFree(d_output);
+    for (int i = 0; i < size; i++) {
+        h_input[i] = 1;  // Set all elements to 1 for easy verification
+    }
+    
+    // Run the reduction and get the sum
+    int result = sumArray(h_input, size);
+    
+    // Verify result (should equal the array size since all elements are 1)
+    bool correct = (result == size);
+    std::cout << "Result verification: " << (correct ? "PASSED" : "FAILED") << std::endl;
+    
+    // Clean up
     delete[] h_input;
-
-    checkGpuMemoryUsage("After GPU Memory Deallocation");
+    
     return 0;
 }
