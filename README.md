@@ -14,3 +14,9 @@ This is a course project under CS 5914: High-Performance Code Generation Using L
 ## Setup & Run Code
 - [`llm_blue/README.md`](./llm_blue/README.md) file has setup instructions for the blue team (optimization via LLMs).  
 - [`manual_red/README.md`](./manual_red/README.md) file has setup instructions for the red team (manual optimization).
+
+### GPU specifications:
+The evaluation is done on the following GPU specifications:
+- NVIDIA A100-SXM4 GPU
+- VRAM 81920 MB
+- CUDA Version 12.2
