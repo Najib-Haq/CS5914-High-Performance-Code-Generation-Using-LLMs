@@ -1,7 +1,7 @@
 # CS5914-High-Performance-Code-Generation-Using-LLMs
 
 Project Name: Tensor Reduction utilizing GPU <br>
-This is a course project under CS 5914: High-Performance Code Generation Using LLMs. The objective of this project is to optimize reduction kernels both manually and through LLMs, and try to match performance of the kernels in GPUs. 
+This is a course project under CS 5914: High-Performance Code Generation Using LLMs. The objective of this project is to optimize reduction kernels both manually and through LLMs, and try to compare performance of the two approaches in GPU accelerators. 
 
 ## Team Information
 - Red team (manual optimization): Najibul Haque Sarker
